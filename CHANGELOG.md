@@ -5,6 +5,57 @@ All notable changes to BrewPackageManager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-01-07
+
+### Added
+
+#### Launch at Login
+- **Launch at Login Toggle**
+  - New "General" section in Settings with launch at login control
+  - Uses modern ServiceManagement framework (SMAppService) for macOS 13+
+  - Seamless integration with system login items
+  - Automatic state synchronization with macOS preferences
+
+#### Check for Updates
+- **Automatic Update Checking**
+  - Checks for new releases on GitHub on app launch
+  - Configurable automatic checking (enabled by default)
+  - Respects 24-hour minimum interval between automatic checks
+  - Manual "Check for Updates Now" button in Settings
+  - Last checked timestamp display
+
+- **Update Notifications**
+  - Alert dialog when updates are available
+  - Displays version number, release name, and notes preview
+  - Three action options:
+    - "Download" - Opens GitHub release page in browser
+    - "Skip This Version" - Permanently ignores specific release
+    - "Remind Me Later" - Dismisses until next check
+
+- **GitHub Integration**
+  - Queries GitHub Releases API for latest version
+  - 10-second timeout for network requests
+  - Semantic version comparison (X.Y.Z format)
+  - Handles network errors gracefully
+
+#### Technical Improvements
+- New `Updates` module with components:
+  - `GitHubClient` actor for thread-safe API access
+  - `UpdateChecker` for business logic coordination
+  - `VersionComparator` for semantic version parsing
+  - `ReleaseInfo` model for GitHub API responses
+  - `UpdateCheckResult` enum for result states
+- Extended `AppError` with update-related error cases
+- ServiceManagement framework integration for login items
+
+### Changed
+- Updated app version from 1.5.0 to 1.6.0
+- Settings view reorganized with new "General" and "Updates" sections
+- Enhanced `AppSettings` with computed `launchAtLogin` property
+- MenuBarRootView now triggers update check on launch
+- HelpView updated with all features including search and new v1.6.0 capabilities
+- Fixed GitHub repository URL in HelpView
+
 ## [1.5.0] - 2026-01-06
 
 ### Added
@@ -212,4 +263,6 @@ The package management logic, state management, CSV export functionality, and UI
 
 MIT License - Copyright (c) 2026
 
+[1.6.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.6.0
+[1.5.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.5.0
 [1.0.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.0.0

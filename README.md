@@ -55,6 +55,28 @@ Discover and install new Homebrew packages directly from the menu bar applicatio
 - **Package Details**: View package descriptions and metadata before installing
 - **Smart Results**: First 15 results displayed with hints for refining search
 
+### Launch at Login
+
+Optionally configure the app to launch automatically when you log in to macOS.
+
+- **System Integration**: Uses native macOS login items via ServiceManagement framework
+- **Easy Toggle**: Enable/disable from Settings → General section
+- **Persistent Setting**: Choice is remembered and managed by the system
+
+### Automatic Updates
+
+Stay up to date with the latest features and improvements.
+
+- **GitHub Integration**: Automatically checks for new releases from the official repository
+- **Smart Timing**: Checks once per 24 hours to avoid excessive network requests
+- **Update Notifications**: Alert dialog shows version details and release notes
+- **User Control**:
+  - Toggle automatic checking on/off
+  - Manual "Check Now" button
+  - Skip specific versions permanently
+  - Postpone updates with "Remind Me Later"
+- **Privacy Friendly**: Only connects to GitHub API, no analytics or tracking
+
 ### Package Management
 
 The core functionality revolves around providing visibility into your Homebrew installation. The app automatically detects both formulae (command-line tools) and casks (GUI applications) installed on your system.

@@ -4,6 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
+//  Version: 1.6.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -31,6 +32,14 @@ struct SettingsView: View {
 
     /// Callback to dismiss the settings panel.
     let onDismiss: () -> Void
+
+    // MARK: - State
+
+    /// Whether to show the update available alert.
+    @State private var showUpdateAlert = false
+
+    /// The release info for the available update.
+    @State private var availableUpdate: ReleaseInfo?
 
     // MARK: - Private Methods
 
@@ -65,6 +74,57 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    // General
+                    PanelSectionCardView(title: "General") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Toggle("Launch at login", isOn: $settings.launchAtLogin)
+
+                            Text("Automatically start when you log in to macOS")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    // Updates
+                    PanelSectionCardView(title: "Updates") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Toggle("Check for updates automatically", isOn: $settings.checkForUpdatesEnabled)
+
+                            HStack {
+                                Button {
+                                    Task {
+                                        await store.checkForUpdates(settings: settings, manual: true)
+                                        handleUpdateCheckResult()
+                                    }
+                                } label: {
+                                    HStack {
+                                        if store.isCheckingForUpdates {
+                                            ProgressView()
+                                                .scaleEffect(0.7)
+                                                .frame(width: 16, height: 16)
+                                        } else {
+                                            Image(systemName: "arrow.clockwise")
+                                        }
+                                        Text("Check for Updates Now")
+                                        Spacer()
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(store.isCheckingForUpdates)
+                            }
+
+                            if let lastCheck = settings.lastUpdateCheck {
+                                Text("Last checked: \(lastCheck, formatter: updateDateFormatter)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("Never checked for updates")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
                     // Auto-refresh
                     PanelSectionCardView(title: "Auto-Refresh") {
                         VStack(alignment: .leading, spacing: 12) {
@@ -129,6 +189,56 @@ struct SettingsView: View {
                 }
                 .padding()
             }
+        }
+        .alert("Update Available", isPresented: $showUpdateAlert, presenting: availableUpdate) { release in
+            Button("Download") {
+                if let url = URL(string: release.htmlUrl) {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+
+            Button("Skip This Version") {
+                settings.skippedVersion = release.version
+            }
+
+            Button("Remind Me Later", role: .cancel) {}
+        } message: { release in
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Version \(release.version) is now available!")
+                    .font(.headline)
+
+                Text(release.name)
+                    .font(.subheadline)
+
+                if !release.body.isEmpty {
+                    Text(release.body.prefix(200))
+                        .font(.caption)
+                        .lineLimit(5)
+                }
+            }
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    /// Date formatter for displaying last update check time.
+    private var updateDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
+    }
+
+    /// Handles the result of an update check and shows alert if needed.
+    private func handleUpdateCheckResult() {
+        guard let result = store.updateCheckResult else { return }
+
+        switch result {
+        case .updateAvailable(let release):
+            availableUpdate = release
+            showUpdateAlert = true
+        case .upToDate, .error:
+            break
         }
     }
 }
