@@ -4,7 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
-//  Version: 1.5.0
+//  Version: 1.6.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -90,6 +90,17 @@ final class PackagesStore {
 
     /// Whether a refresh has been requested while another is in progress.
     private var pendingRefreshRequest = false
+
+    // MARK: - Update Checking
+
+    /// Update checker for managing application updates.
+    private let updateChecker = UpdateChecker()
+
+    /// Current update check result.
+    var updateCheckResult: UpdateCheckResult?
+
+    /// Whether an update check is in progress.
+    var isCheckingForUpdates = false
 
     // MARK: - Cache Management
 
@@ -738,5 +749,52 @@ final class PackagesStore {
     /// - Parameter packageName: The name of the package to clear the operation for.
     func clearInstallOperation(for packageName: String) {
         installOperations.removeValue(forKey: packageName)
+    }
+
+    // MARK: - Update Checking
+
+    /// Checks for application updates.
+    ///
+    /// Fetches the latest release from GitHub and compares with the current version.
+    /// Updates `updateCheckResult` with the result.
+    ///
+    /// - Parameters:
+    ///   - settings: App settings containing update preferences
+    ///   - manual: Whether this is a manual check (always shows result)
+    func checkForUpdates(settings: AppSettings, manual: Bool = false) async {
+        guard !isCheckingForUpdates else {
+            logger.info("Update check already in progress")
+            return
+        }
+
+        isCheckingForUpdates = true
+        defer { isCheckingForUpdates = false }
+
+        // Get current version from bundle
+        guard let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String else {
+            logger.error("Could not read current version from bundle")
+            updateCheckResult = .error(.updateCheckFailed(reason: "Could not read app version"))
+            return
+        }
+
+        logger.info("Checking for updates (current version: \(currentVersion))...")
+
+        let result = await updateChecker.checkForUpdates(
+            currentVersion: currentVersion,
+            skippedVersion: settings.skippedVersion
+        )
+
+        updateCheckResult = result
+        settings.lastUpdateCheck = Date()
+
+        // Log result
+        switch result {
+        case .upToDate:
+            logger.info("App is up to date")
+        case .updateAvailable(let release):
+            logger.info("Update available: \(release.version)")
+        case .error(let error):
+            logger.error("Update check failed: \(error.localizedDescription ?? "Unknown error")")
+        }
     }
 }

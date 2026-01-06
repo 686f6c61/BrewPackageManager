@@ -2,7 +2,7 @@
 set -e
 
 APP_NAME="BrewPackageManager"
-VERSION="1.5.0"
+VERSION="1.6.0"
 DMG_NAME="${APP_NAME}-${VERSION}"
 BUILD_DIR="BrewPackageManager"
 

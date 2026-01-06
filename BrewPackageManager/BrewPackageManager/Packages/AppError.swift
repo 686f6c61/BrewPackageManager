@@ -4,6 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
+//  Version: 1.6.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -34,6 +35,15 @@ nonisolated enum AppError: Error, LocalizedError, Sendable {
     /// The operation was cancelled by the user or system.
     case cancelled
 
+    /// A network request failed.
+    case networkRequestFailed(underlyingError: String)
+
+    /// Update check operation failed.
+    case updateCheckFailed(reason: String)
+
+    /// Version string has invalid format.
+    case invalidVersionFormat(version: String)
+
     // MARK: - LocalizedError
     
     var errorDescription: String? {
@@ -48,6 +58,12 @@ nonisolated enum AppError: Error, LocalizedError, Sendable {
             "The command timed out."
         case .cancelled:
             "The operation was cancelled."
+        case .networkRequestFailed(let error):
+            "Network request failed: \(error)"
+        case .updateCheckFailed(let reason):
+            "Update check failed: \(reason)"
+        case .invalidVersionFormat(let version):
+            "Invalid version format: \(version)"
         }
     }
     
@@ -63,6 +79,12 @@ nonisolated enum AppError: Error, LocalizedError, Sendable {
             "Try the operation again or check if Homebrew is responding."
         case .cancelled:
             nil
+        case .networkRequestFailed:
+            "Check your internet connection and try again."
+        case .updateCheckFailed:
+            "Try checking for updates manually or check your internet connection."
+        case .invalidVersionFormat:
+            "Please report this issue to the developer."
         }
     }
 }
