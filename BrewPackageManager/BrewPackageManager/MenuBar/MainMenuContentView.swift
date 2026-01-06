@@ -4,6 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
+//  Version: 1.5.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -17,10 +18,10 @@ import SwiftUI
 /// - Header with app branding
 /// - Package list section
 /// - Update actions section (when updates are available)
-/// - App actions (Refresh, Settings, Help, Quit)
+/// - App actions (Refresh, Search, Settings, Help, Quit)
 /// - Version footer
 ///
-/// Navigation callbacks are provided for transitioning to Settings, Help,
+/// Navigation callbacks are provided for transitioning to Search, Settings, Help,
 /// and Package Info views.
 struct MainMenuContentView: View {
 
@@ -42,6 +43,9 @@ struct MainMenuContentView: View {
 
     /// Callback to navigate to package detail view.
     let onPackageInfo: (BrewPackage) -> Void
+
+    /// Callback to navigate to the search view.
+    let onSearch: () -> Void
 
     // MARK: - Body
 
@@ -72,6 +76,10 @@ struct MainMenuContentView: View {
                 }
             }
 
+            MenuRowButton("Search Packages…", systemImage: "magnifyingglass", showDisclosure: true) {
+                onSearch()
+            }
+
             MenuRowButton("Settings…", systemImage: "gear", showDisclosure: true) {
                 onSettings()
             }
@@ -89,7 +97,7 @@ struct MainMenuContentView: View {
 
                 Spacer()
 
-                Text("v1.0.0")
+                Text("v1.5.0")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .padding(.trailing, 12)

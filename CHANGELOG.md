@@ -5,6 +5,53 @@ All notable changes to BrewPackageManager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-01-06
+
+### Added
+
+#### Package Search & Installation
+- **Search Functionality**
+  - Search for available Homebrew packages (formulae and casks)
+  - Real-time search with text input field
+  - Type filtering: All packages, Formulae only, or Casks only
+  - Results limited to first 15 matches with "More results available" hint
+  - Empty state and error handling with retry option
+
+- **Package Installation**
+  - Install packages directly from search results
+  - Installation confirmation dialog with package description
+  - Real-time progress indicator during installation
+  - Visual states: Installing, Installed, Failed
+  - Automatic package list refresh after successful installation
+  - Package status badges showing installation state
+
+- **Search Result Display**
+  - Package name and type icon (formula/cask)
+  - Package description (when available)
+  - Installation status badge for already installed packages
+  - "Install" button for available packages
+  - Context menu with "Show Details" and "Install" options
+  - Hover highlighting for better UX
+
+- **Navigation Enhancement**
+  - New "Search Packages..." menu item in main view
+  - Dedicated search view with back navigation
+  - Package info view accessible from search results
+  - Smooth animated transitions between views
+
+#### Technical Improvements
+- New search state management with SearchState enum (idle, searching, loaded, error)
+- SearchResult model for managing search data and caching
+- Extended BrewPackagesClient with searchPackages() and installPackage() methods
+- PackagesStore enhancements for search and installation operations
+- Proper timeout handling: 30 seconds for search, 10 minutes for installation
+- Thread-safe operation tracking for concurrent installations
+
+### Changed
+- Updated app version from 1.0.0 to 1.5.0
+- Enhanced MenuBarRoute with search navigation case
+- Extended MainMenuContentView with search action button
+
 ## [1.0.0] - 2026-01-04
 
 ### Initial Release
