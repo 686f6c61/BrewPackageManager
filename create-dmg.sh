@@ -2,7 +2,7 @@
 set -e
 
 APP_NAME="BrewPackageManager"
-VERSION="1.0.0"
+VERSION="1.5.0"
 DMG_NAME="${APP_NAME}-${VERSION}"
 BUILD_DIR="BrewPackageManager"
 
@@ -89,5 +89,5 @@ echo "Cleaning up..."
 rm -f "$DMG_TEMP"
 rm -rf "dmg-staging"
 
-echo "✅ DMG created: ${DMG_FINAL}"
+echo "DMG created: ${DMG_FINAL}"
 ls -lh "$DMG_FINAL"

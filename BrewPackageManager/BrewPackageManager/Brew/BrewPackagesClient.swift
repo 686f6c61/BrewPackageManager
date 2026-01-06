@@ -4,6 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
+//  Version: 1.5.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -321,6 +322,93 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
         }
 
         logger.info("Successfully uninstalled \(packageName)")
+    }
+
+    // MARK: - Search
+
+    /// Searches for packages matching the given query.
+    ///
+    /// This method executes `brew search [--formula|--cask] <query>` with a 30-second timeout.
+    /// The output is a line-delimited list of package names.
+    ///
+    /// - Parameters:
+    ///   - query: The search term to query.
+    ///   - type: Optional package type filter (formula or cask).
+    ///   - debugMode: Whether to run the command in debug mode with verbose output.
+    /// - Returns: Array of package names matching the search.
+    /// - Throws: `AppError` for various failure conditions.
+    func searchPackages(_ query: String, type: PackageType?, debugMode: Bool) async throws -> [String] {
+        let brewURL = try await ensureBrewURL()
+        let arguments = BrewPackagesArgumentsBuilder.searchArguments(query: query, type: type, debugMode: debugMode)
+
+        logger.info("Running: brew \(arguments.joined(separator: " "))")
+
+        let result: CommandResult
+        do {
+            result = try await CommandExecutor.run(
+                brewURL,
+                arguments: arguments,
+                environment: environment,
+                timeout: .seconds(30) // 30 seconds for search
+            )
+        } catch {
+            throw mapExecutionError(error)
+        }
+
+        try ensureNotCancelled(result)
+
+        guard result.isSuccess else {
+            logger.error("brew search failed: \(result.stderr)")
+            throw AppError.brewFailed(exitCode: result.exitCode, stderr: result.stderr)
+        }
+
+        // Parse line-delimited output
+        let packageNames = result.stdout
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        logger.info("Found \(packageNames.count) packages matching '\(query)'")
+        return packageNames
+    }
+
+    // MARK: - Install
+
+    /// Installs a package.
+    ///
+    /// This method executes `brew install [--cask] <package>` with a 10-minute timeout.
+    ///
+    /// - Parameters:
+    ///   - packageName: The name of the package to install.
+    ///   - type: The package type (formula or cask).
+    ///   - debugMode: Whether to run the command in debug mode with verbose output.
+    /// - Throws: `AppError` for various failure conditions.
+    func installPackage(_ packageName: String, type: PackageType, debugMode: Bool) async throws {
+        let brewURL = try await ensureBrewURL()
+        let arguments = BrewPackagesArgumentsBuilder.installPackageArguments(packageName: packageName, type: type, debugMode: debugMode)
+
+        logger.info("Running: brew \(arguments.joined(separator: " "))")
+
+        let result: CommandResult
+        do {
+            result = try await CommandExecutor.run(
+                brewURL,
+                arguments: arguments,
+                environment: environment,
+                timeout: .seconds(600) // 10 minutes for installation
+            )
+        } catch {
+            throw mapExecutionError(error)
+        }
+
+        try ensureNotCancelled(result)
+
+        guard result.isSuccess else {
+            logger.error("brew install failed: \(result.stderr)")
+            throw AppError.brewFailed(exitCode: result.exitCode, stderr: result.stderr)
+        }
+
+        logger.info("Successfully installed \(packageName)")
     }
 
     // MARK: - Decoding

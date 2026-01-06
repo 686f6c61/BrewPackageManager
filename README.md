@@ -29,6 +29,9 @@ A modern, native macOS menu bar application for managing Homebrew packages. Buil
 ### Main Interface
 <img src="assets/screenshot-main.png" alt="Main Interface" width="600"/>
 
+### Package Search
+<img src="assets/screenshot-search.png" alt="Package Search" width="600"/>
+
 ### Package Updates
 <img src="assets/screenshot-updates.png" alt="Package Updates" width="600"/>
 
@@ -40,6 +43,17 @@ A modern, native macOS menu bar application for managing Homebrew packages. Buil
 ---
 
 ## Features
+
+### Package Search & Installation
+
+Discover and install new Homebrew packages directly from the menu bar application without using the terminal.
+
+- **Package Search**: Search for available Homebrew packages (both formulae and casks)
+- **Type Filtering**: Filter results by package type (All, Formulae only, or Casks only)
+- **Quick Installation**: Install packages with a single click and confirmation dialog
+- **Installation Progress**: Real-time progress indicators showing installation status
+- **Package Details**: View package descriptions and metadata before installing
+- **Smart Results**: First 15 results displayed with hints for refining search
 
 ### Package Management
 

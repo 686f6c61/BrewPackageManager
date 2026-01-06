@@ -4,6 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
+//  Version: 1.5.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -96,6 +97,59 @@ nonisolated enum BrewPackagesArgumentsBuilder {
         if debugMode {
             arguments.append("--debug")
         }
+        return arguments
+    }
+
+    /// Builds arguments for searching packages.
+    ///
+    /// - Parameters:
+    ///   - query: The search term.
+    ///   - type: Optional package type filter (formula or cask).
+    ///   - debugMode: Whether to include debug output.
+    /// - Returns: Argument array for `brew search [--formula|--cask] <query>`.
+    static func searchArguments(query: String, type: PackageType?, debugMode: Bool) -> [String] {
+        var arguments = ["search"]
+
+        // Add type filter if specified
+        if let type = type {
+            switch type {
+            case .formula:
+                arguments.append("--formula")
+            case .cask:
+                arguments.append("--cask")
+            }
+        }
+
+        arguments.append(query)
+
+        if debugMode {
+            arguments.append("--debug")
+        }
+
+        return arguments
+    }
+
+    /// Builds arguments for installing a package.
+    ///
+    /// - Parameters:
+    ///   - packageName: The name of the package to install.
+    ///   - type: The package type (formula or cask).
+    ///   - debugMode: Whether to include debug output.
+    /// - Returns: Argument array for `brew install [--cask] <package>`.
+    static func installPackageArguments(packageName: String, type: PackageType, debugMode: Bool) -> [String] {
+        var arguments = ["install"]
+
+        // Casks require the --cask flag
+        if type == .cask {
+            arguments.append("--cask")
+        }
+
+        arguments.append(packageName)
+
+        if debugMode {
+            arguments.append("--debug")
+        }
+
         return arguments
     }
 }

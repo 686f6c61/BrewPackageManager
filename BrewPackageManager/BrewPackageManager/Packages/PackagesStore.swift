@@ -4,6 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
+//  Version: 1.5.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -58,6 +59,23 @@ final class PackagesStore {
 
     /// Detailed information about a selected package, if loaded.
     private(set) var selectedPackageInfo: BrewPackageInfo?
+
+    // MARK: - Search State
+
+    /// The current search state.
+    var searchState: SearchState = .idle
+
+    /// Search results with package info loaded.
+    private(set) var searchResults: [SearchResult] = []
+
+    /// Currently selected package type filter for search.
+    var searchTypeFilter: PackageType? = nil
+
+    /// Packages currently being installed (keyed by package name).
+    var installOperations: [String: PackageOperation] = [:]
+
+    /// Number of results to show per page.
+    private let searchPageSize = 15
 
     // MARK: - Refresh Tracking
 
@@ -545,5 +563,180 @@ final class PackagesStore {
             _ = await previousTask?.result
             try? PackagesDiskCache.save(packages: packages, lastRefresh: lastRefresh)
         }
+    }
+
+    // MARK: - Search Operations
+
+    /// Performs a package search.
+    ///
+    /// This method queries Homebrew for packages matching the given search term.
+    /// Results are limited to the first page (15 results by default).
+    ///
+    /// - Parameters:
+    ///   - query: The search term to query.
+    ///   - debugMode: Whether to run in debug mode.
+    func search(query: String, debugMode: Bool = false) async {
+        guard !query.isEmpty else {
+            searchState = .idle
+            searchResults = []
+            return
+        }
+
+        logger.info("Searching for packages: \(query)")
+        searchState = .searching(query: query)
+
+        do {
+            // Search for packages
+            let names = try await client.searchPackages(
+                query,
+                type: searchTypeFilter,
+                debugMode: debugMode
+            )
+
+            // Get installed package names for comparison
+            let installedNames = Set(packages.map { $0.name })
+
+            // Create search results (limit to first page)
+            let hasMore = names.count > searchPageSize
+            let pageNames = Array(names.prefix(searchPageSize))
+
+            searchResults = pageNames.map { name in
+                // Determine type - check if it's a known installed package first
+                let type: PackageType
+                if let installedPackage = packages.first(where: { $0.name == name }) {
+                    type = installedPackage.type
+                } else {
+                    // Default to formula if no filter, otherwise use the filter
+                    type = searchTypeFilter ?? .formula
+                }
+
+                return SearchResult(
+                    name: name,
+                    type: type,
+                    isInstalled: installedNames.contains(name)
+                )
+            }
+
+            searchState = .loaded(query: query, results: searchResults, hasMore: hasMore)
+            logger.info("Found \(names.count) packages (\(self.searchResults.count) shown)")
+
+        } catch let error as AppError {
+            if case .cancelled = error {
+                logger.debug("Search cancelled")
+                searchState = .idle
+                return
+            }
+            searchState = .error(error)
+            logger.error("Search failed: \(error.localizedDescription)")
+        } catch {
+            let appError = AppError.brewFailed(exitCode: -1, stderr: error.localizedDescription)
+            searchState = .error(appError)
+            logger.error("Search failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Clears search results and resets to idle state.
+    func clearSearch() {
+        searchState = .idle
+        searchResults = []
+        searchTypeFilter = nil
+    }
+
+    /// Fetches detailed info for a search result.
+    ///
+    /// This method loads package information and caches it in the search result.
+    ///
+    /// - Parameters:
+    ///   - result: The search result to fetch info for.
+    ///   - debugMode: Whether to run in debug mode.
+    func fetchSearchResultInfo(_ result: SearchResult, debugMode: Bool = false) async {
+        guard let index = searchResults.firstIndex(where: { $0.id == result.id }) else {
+            return
+        }
+
+        // Skip if already loaded
+        if searchResults[index].info != nil {
+            return
+        }
+
+        do {
+            let info = try await client.getPackageInfo(result.name, debugMode: debugMode)
+            searchResults[index].info = info
+        } catch {
+            logger.error("Failed to fetch info for \(result.name): \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Installation Operations
+
+    /// Installs a package from search results.
+    ///
+    /// This method installs the specified package, tracks installation progress,
+    /// and automatically refreshes the package list upon successful completion.
+    ///
+    /// - Parameters:
+    ///   - result: The search result representing the package to install.
+    ///   - debugMode: Whether to run in debug mode.
+    func installPackage(_ result: SearchResult, debugMode: Bool = false) async {
+        logger.info("Installing package \(result.name)")
+
+        installOperations[result.name] = PackageOperation(
+            status: .running,
+            error: nil,
+            diagnostics: "Installing \(result.name)..."
+        )
+
+        do {
+            try await client.installPackage(result.name, type: result.type, debugMode: debugMode)
+
+            installOperations[result.name] = PackageOperation(
+                status: .succeeded,
+                error: nil,
+                diagnostics: nil
+            )
+
+            // Refresh package list to show newly installed package
+            await refresh(debugMode: debugMode, force: true)
+
+            // Update search results to reflect installation
+            if let index = searchResults.firstIndex(where: { $0.id == result.id }) {
+                searchResults[index] = SearchResult(
+                    name: result.name,
+                    type: result.type,
+                    isInstalled: true
+                )
+            }
+
+            // Clear operation after successful refresh
+            try? await Task.sleep(for: .seconds(2))
+            installOperations.removeValue(forKey: result.name)
+
+        } catch let error as AppError {
+            if case .cancelled = error {
+                logger.debug("Installation cancelled")
+                installOperations[result.name] = .idle
+                return
+            }
+
+            installOperations[result.name] = PackageOperation(
+                status: .failed,
+                error: error,
+                diagnostics: "Failed to install \(result.name): \(error.localizedDescription)"
+            )
+        } catch {
+            let appError = AppError.brewFailed(exitCode: -1, stderr: error.localizedDescription)
+            installOperations[result.name] = PackageOperation(
+                status: .failed,
+                error: appError,
+                diagnostics: "Failed to install \(result.name): \(error.localizedDescription)"
+            )
+        }
+    }
+
+    /// Clears the installation operation status for a package.
+    ///
+    /// - Parameter packageName: The name of the package to clear the operation for.
+    func clearInstallOperation(for packageName: String) {
+        installOperations.removeValue(forKey: packageName)
     }
 }

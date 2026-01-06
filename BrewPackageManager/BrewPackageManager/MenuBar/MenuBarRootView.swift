@@ -4,6 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
+//  Version: 1.5.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -17,6 +18,7 @@ import SwiftUI
 /// - Main menu: Package list and primary actions
 /// - Settings: User preferences
 /// - Help: Documentation and support
+/// - Search: Package search and installation
 /// - Package Info: Detailed package information
 ///
 /// Navigation is handled via a `MenuBarRoute` enum with animated transitions.
@@ -47,6 +49,8 @@ struct MenuBarRootView: View {
             LayoutConstants.mainMenuWidth
         case .packageInfo:
             LayoutConstants.serviceInfoMenuWidth
+        case .search:
+            LayoutConstants.mainMenuWidth
         case .main:
             LayoutConstants.mainMenuWidth
         }
@@ -81,6 +85,11 @@ struct MenuBarRootView: View {
                                 }
                             }
                         }
+                    },
+                    onSearch: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            route = .search
+                        }
                     }
                 )
                 .transition(.move(edge: .leading))
@@ -99,6 +108,28 @@ struct MenuBarRootView: View {
                         route = .main
                     }
                 }
+                .transition(.move(edge: .trailing))
+
+            case .search:
+                SearchView(
+                    onBack: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            route = .main
+                            store.clearSearch()
+                        }
+                    },
+                    onPackageInfo: { result in
+                        Task {
+                            await store.fetchSearchResultInfo(result, debugMode: settings.debugMode)
+                            if let updated = store.searchResults.first(where: { $0.id == result.id }),
+                               let info = updated.info {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    route = .packageInfo(info)
+                                }
+                            }
+                        }
+                    }
+                )
                 .transition(.move(edge: .trailing))
 
             case .packageInfo(let info):
