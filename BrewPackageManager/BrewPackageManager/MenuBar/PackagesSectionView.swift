@@ -92,7 +92,7 @@ struct PackagesSectionView: View {
                         }
                     }
                 }
-                .frame(minHeight: 500, maxHeight: 600)
+                .frame(maxHeight: 360)
             }
         }
     }

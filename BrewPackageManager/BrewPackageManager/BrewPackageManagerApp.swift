@@ -76,5 +76,13 @@ struct BrewPackageManagerApp: App {
         }
         .menuBarExtraStyle(.window)
         .windowResizability(.contentSize)
+        .commands {
+            CommandGroup(replacing: .appTermination) {
+                Button("Quit Brew Package Manager") {
+                    AppKitBridge.quit()
+                }
+                .keyboardShortcut("q", modifiers: .command)
+            }
+        }
     }
 }

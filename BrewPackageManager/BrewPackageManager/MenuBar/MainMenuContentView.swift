@@ -4,7 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
-//  Version: 1.6.0
+//  Version: 1.7.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -47,6 +47,21 @@ struct MainMenuContentView: View {
     /// Callback to navigate to the search view.
     let onSearch: () -> Void
 
+    /// Callback to navigate to the services view.
+    let onServices: () -> Void
+
+    /// Callback to navigate to the cleanup view.
+    let onCleanup: () -> Void
+
+    /// Callback to navigate to the dependencies view.
+    let onDependencies: () -> Void
+
+    /// Callback to navigate to the history view.
+    let onHistory: () -> Void
+
+    /// Callback to navigate to the statistics view.
+    let onStatistics: () -> Void
+
     // MARK: - Body
 
     var body: some View {
@@ -66,6 +81,31 @@ struct MainMenuContentView: View {
                 UpdateActionsSectionView()
                 Divider()
             }
+
+            // Tools section
+            MenuSectionLabel(title: "Tools")
+
+            MenuRowButton("Services", systemImage: "gear.badge", showDisclosure: true) {
+                onServices()
+            }
+
+            MenuRowButton("Cleanup & Cache", systemImage: "trash.circle", showDisclosure: true) {
+                onCleanup()
+            }
+
+            MenuRowButton("Dependencies", systemImage: "link.circle", showDisclosure: true) {
+                onDependencies()
+            }
+
+            MenuRowButton("History", systemImage: "clock.arrow.circlepath", showDisclosure: true) {
+                onHistory()
+            }
+
+            MenuRowButton("Statistics", systemImage: "chart.bar", showDisclosure: true) {
+                onStatistics()
+            }
+
+            Divider()
 
             // App section
             MenuSectionLabel(title: "App")
@@ -97,11 +137,12 @@ struct MainMenuContentView: View {
 
                 Spacer()
 
-                Text("v1.6.0")
+                Text("v1.7.0")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .padding(.trailing, 12)
             }
         }
+        .frame(width: LayoutConstants.mainMenuWidth)
     }
 }
