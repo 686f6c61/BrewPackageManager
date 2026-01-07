@@ -77,6 +77,60 @@ Stay up to date with the latest features and improvements.
   - Postpone updates with "Remind Me Later"
 - **Privacy Friendly**: Only connects to GitHub API, no analytics or tracking
 
+### Services Manager
+
+Control Homebrew services directly from the menu bar.
+
+- **Service Control**: Start, stop, and restart Homebrew services
+- **Real-time Status**: Live status indicators (Running, Stopped, Error)
+- **Service Information**: View PID, user, and plist path for each service
+- **Summary Statistics**: Running vs stopped services count
+- **Thread-safe Operations**: Actor-based architecture prevents race conditions
+
+### Cleanup & Cache Management
+
+Optimize disk space by managing Homebrew's cache and old versions.
+
+- **Cache Analysis**: View cache size and file count
+- **Old Versions Detection**: Identify outdated formula versions
+- **Two Cleanup Modes**:
+  - Clean old versions only
+  - Clear entire download cache with `--prune=all`
+- **Smart Recommendations**: Alerts when cache exceeds 500 MB or >5 old versions
+- **Size Reporting**: Shows freed disk space after cleanup
+
+### Dependencies Management
+
+Visualize and understand package dependencies.
+
+- **Dependency Viewer**: See all dependencies for installed packages
+- **Search Filter**: Quick package lookup
+- **Dependency Types**:
+  - Direct dependencies
+  - Optional dependencies
+  - Build-only dependencies
+  - Reverse dependencies (what uses this package)
+- **Summary Statistics**: Total packages and dependencies count
+- **Visual Indicators**: Color-coded status for independent and required packages
+
+### History & Statistics
+
+Track your Homebrew usage and operations over time.
+
+- **Operation History**:
+  - Persistent log of all operations (install, upgrade, uninstall, services, cleanup)
+  - Chronological display with relative timestamps
+  - Filter by operation type
+  - Success/failure indicators
+  - Stores up to 1000 most recent entries
+
+- **Usage Statistics**:
+  - Total operations count and success rate
+  - Operations breakdown by type with visual bars
+  - Most installed packages (top 10)
+  - Most upgraded packages (top 10)
+  - Interactive statistics cards
+
 ### Package Management
 
 The core functionality revolves around providing visibility into your Homebrew installation. The app automatically detects both formulae (command-line tools) and casks (GUI applications) installed on your system.
@@ -212,6 +266,11 @@ BrewPackageManager/
 ├── Packages/          # State management & business logic
 ├── MenuBar/           # SwiftUI views & navigation
 ├── Settings/          # User preferences management
+├── Updates/           # GitHub updates integration
+├── Services/          # Homebrew services management
+├── Cleanup/           # Cache & cleanup operations
+├── Dependencies/      # Dependency analysis
+├── History/           # Operation history & statistics
 ├── Design/            # Reusable UI components & modifiers
 ├── Components/        # Generic UI elements
 └── Utilities/         # Helper functions & bridges
@@ -287,23 +346,33 @@ Contributions welcome! Please ensure:
 The application uses Homebrew's JSON API:
 
 ```bash
-# List all installed packages
-brew info --json=v2 --installed
+# Package Management
+brew info --json=v2 --installed        # List all installed packages
+brew outdated --json=v2                 # Check for outdated packages
+brew info --json=v2 <package>          # Get detailed package info
+brew upgrade <package>                  # Upgrade specific package
+brew upgrade                            # Upgrade all packages
+brew uninstall <package>                # Uninstall package
 
-# Check for outdated packages
-brew outdated --json=v2
+# Services Management
+brew services list --json               # List all services with status
+brew services start <service>           # Start a service
+brew services stop <service>            # Stop a service
+brew services restart <service>         # Restart a service
 
-# Get detailed package info
-brew info --json=v2 <package>
+# Cleanup & Cache
+brew cleanup --dry-run -s               # Preview cleanup operations
+brew cleanup -s                         # Cleanup old versions
+brew cleanup --prune=all                # Clear download cache
+brew --cache                            # Get cache directory path
 
-# Upgrade specific package
-brew upgrade <package>
+# Dependencies
+brew info --json=v2 <package>          # Get dependency information
+brew uses --installed <package>         # Get reverse dependencies
+brew list --formula                     # List installed formulae
 
-# Upgrade all packages
-brew upgrade
-
-# Uninstall package
-brew uninstall <package>
+# Search
+brew search --json=v2 <query>          # Search for packages
 ```
 
 Environment variables prevent unwanted side effects:

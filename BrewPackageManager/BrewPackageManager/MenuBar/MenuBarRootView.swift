@@ -4,7 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
-//  Version: 1.6.0
+//  Version: 1.7.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -45,14 +45,10 @@ struct MenuBarRootView: View {
         switch route {
         case .settings:
             LayoutConstants.settingsMenuWidth
-        case .help:
+        case .help, .search, .main, .services, .cleanup, .dependencies, .history, .statistics:
             LayoutConstants.mainMenuWidth
         case .packageInfo:
             LayoutConstants.serviceInfoMenuWidth
-        case .search:
-            LayoutConstants.mainMenuWidth
-        case .main:
-            LayoutConstants.mainMenuWidth
         }
     }
 
@@ -89,6 +85,31 @@ struct MenuBarRootView: View {
                     onSearch: {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             route = .search
+                        }
+                    },
+                    onServices: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            route = .services
+                        }
+                    },
+                    onCleanup: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            route = .cleanup
+                        }
+                    },
+                    onDependencies: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            route = .dependencies
+                        }
+                    },
+                    onHistory: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            route = .history
+                        }
+                    },
+                    onStatistics: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            route = .statistics
                         }
                     }
                 )
@@ -137,6 +158,46 @@ struct MenuBarRootView: View {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         route = .main
                         store.clearPackageInfo()
+                    }
+                }
+                .transition(.move(edge: .trailing))
+
+            case .services:
+                ServicesView {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        route = .main
+                    }
+                }
+                .transition(.move(edge: .trailing))
+
+            case .cleanup:
+                CleanupView {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        route = .main
+                    }
+                }
+                .transition(.move(edge: .trailing))
+
+            case .dependencies:
+                DependenciesView {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        route = .main
+                    }
+                }
+                .transition(.move(edge: .trailing))
+
+            case .history:
+                HistoryView {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        route = .main
+                    }
+                }
+                .transition(.move(edge: .trailing))
+
+            case .statistics:
+                StatisticsView {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        route = .main
                     }
                 }
                 .transition(.move(edge: .trailing))

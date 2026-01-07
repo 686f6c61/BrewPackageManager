@@ -5,7 +5,97 @@ All notable changes to BrewPackageManager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.0] - 2026-01-07
+## [1.7.0] - 2026-01-07
+
+### Added
+
+#### Services Manager
+- **Homebrew Services Management**
+  - View all installed Homebrew services with real-time status
+  - Start, stop, and restart services directly from the app
+  - Status indicators: Running (green), Stopped (gray), Error (red)
+  - Service information display: PID, user, plist path
+  - Summary statistics: running vs stopped services count
+  - Thread-safe operations using actor-based architecture
+
+#### Cleanup & Cache Management
+- **Storage Optimization**
+  - View cache size and cached files count
+  - Identify old formula versions ready for cleanup
+  - Two cleanup modes:
+    - Clean old versions only
+    - Clear entire download cache (--prune=all)
+  - Real-time cache size calculation using `du` command
+  - Cleanup recommendation when cache exceeds 500 MB or >5 old versions
+  - Confirmation dialogs with size information
+  - Success messages showing freed disk space
+
+#### Dependencies Management
+- **Package Dependency Viewer**
+  - View dependencies for all installed packages
+  - Dependency tree visualization with counts
+  - Search filter for quick package lookup
+  - Summary statistics: total packages, total dependencies
+  - Dependency types displayed:
+    - Direct dependencies
+    - Optional dependencies
+    - Build-only dependencies
+    - Reverse dependencies (what uses this package)
+  - "No dependencies" indicator for independent packages
+  - Visual indicators for packages used by others
+
+#### History & Statistics
+- **Operation History Tracking**
+  - Persistent history of all operations (install, upgrade, uninstall, etc.)
+  - Chronological display with relative timestamps
+  - Filter by operation type (Install, Upgrade, Services, Cleanup, etc.)
+  - Operation icons and color-coded status
+  - Success/failure indicators
+  - Clear history option with confirmation
+  - Stores up to 1000 most recent entries
+
+- **Usage Statistics**
+  - Total operations count and success rate percentage
+  - Operations breakdown by type with visual bars
+  - Most installed packages (top 10)
+  - Most upgraded packages (top 10)
+  - Interactive statistics cards
+  - Empty states for new installations
+
+#### Technical Improvements
+- New modular architecture with 4 major feature modules:
+  - `Services` module: BrewService model, ServicesClient actor, ServicesStore, ServicesView
+  - `Cleanup` module: CleanupInfo model, CleanupClient actor, CleanupStore, CleanupView
+  - `Dependencies` module: DependencyInfo model, DependenciesClient actor, DependenciesStore, DependenciesView
+  - `History` module: HistoryEntry model, HistoryDatabase actor, HistoryStore, HistoryView, StatisticsView
+- All clients use actor pattern for thread-safe operations
+- All stores use @Observable macro for SwiftUI integration
+- Consistent error handling with AppError enum
+- JSON-based persistence for history using UserDefaults
+- Comprehensive OSLog logging for all operations
+
+### Changed
+- Updated app version from 1.6.0 to 1.7.0
+- MenuBarRoute extended with 5 new navigation cases
+- MainMenuContentView now includes "Tools" section with 5 new features
+- MenuBarRootView updated with navigation handlers for all new views
+- HelpView feature list updated with 5 new capabilities
+- Enhanced navigation architecture supporting complex view hierarchies
+
+### User Interface
+- New "Tools" section in main menu with:
+  - Services (gear.badge icon)
+  - Cleanup & Cache (trash.circle icon)
+  - Dependencies (link.circle icon)
+  - History (clock.arrow.circlepath icon)
+  - Statistics (chart.bar icon)
+- Consistent panel-based UI following existing design patterns
+- Smooth animations for all navigation transitions
+- Loading states and empty states for all views
+- Confirmation dialogs for destructive operations
+- Real-time progress indicators for long-running tasks
+
+## [1.6.0] - 2026-01-06
 
 ### Added
 

@@ -4,7 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
-//  Version: 1.6.0
+//  Version: 1.7.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -44,6 +44,15 @@ nonisolated enum AppError: Error, LocalizedError, Sendable {
     /// Version string has invalid format.
     case invalidVersionFormat(version: String)
 
+    /// A shell command failed with a non-zero exit code.
+    case shellCommandFailed(command: String, exitCode: Int32, stderr: String)
+
+    /// Invalid JSON response from a command.
+    case invalidJSONResponse(command: String)
+
+    /// An unknown error occurred.
+    case unknown(String)
+
     // MARK: - LocalizedError
     
     var errorDescription: String? {
@@ -64,6 +73,12 @@ nonisolated enum AppError: Error, LocalizedError, Sendable {
             "Update check failed: \(reason)"
         case .invalidVersionFormat(let version):
             "Invalid version format: \(version)"
+        case .shellCommandFailed(let command, let exitCode, let stderr):
+            "Command '\(command)' failed (exit \(exitCode)): \(stderr)"
+        case .invalidJSONResponse(let command):
+            "Invalid JSON response from command: \(command)"
+        case .unknown(let message):
+            "An error occurred: \(message)"
         }
     }
     
@@ -85,6 +100,12 @@ nonisolated enum AppError: Error, LocalizedError, Sendable {
             "Try checking for updates manually or check your internet connection."
         case .invalidVersionFormat:
             "Please report this issue to the developer."
+        case .shellCommandFailed:
+            "Try the operation again or check if Homebrew is responding."
+        case .invalidJSONResponse:
+            "Try enabling Debug mode or run the command in Terminal to see the raw output."
+        case .unknown:
+            "Try the operation again."
         }
     }
 }

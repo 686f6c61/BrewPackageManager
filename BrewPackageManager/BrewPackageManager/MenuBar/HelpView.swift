@@ -4,7 +4,7 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
-//  Version: 1.6.0
+//  Version: 1.7.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -49,7 +49,7 @@ struct HelpView: View {
                         Text("Brew Package Manager")
                             .font(.headline)
 
-                        Text("Version 1.6.0")
+                        Text("Version 1.7.0")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
 
@@ -76,6 +76,11 @@ struct HelpView: View {
                             FeatureRow(text: "Auto-refresh package list")
                             FeatureRow(text: "Launch at login")
                             FeatureRow(text: "Check for app updates automatically")
+                            FeatureRow(text: "Manage Homebrew services")
+                            FeatureRow(text: "Cleanup and cache management")
+                            FeatureRow(text: "View package dependencies")
+                            FeatureRow(text: "Track operation history")
+                            FeatureRow(text: "View usage statistics")
                         }
                         .font(.caption)
                     }
