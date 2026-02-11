@@ -60,7 +60,7 @@ struct BrewPackageManagerApp: App {
 
         let outdatedCount = packagesStore.outdatedCount
         if outdatedCount > 0 {
-            return "cube.box.badge.ellipsis"  // Updates available
+            return "cube.box"  // Updates available
         }
 
         return "cube.box.fill"  // Normal state

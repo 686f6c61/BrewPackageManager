@@ -59,7 +59,7 @@ nonisolated struct BrewPackage: Codable, Identifiable, Sendable, Hashable {
     // MARK: - Computed Properties
 
     /// Unique identifier for SwiftUI list rendering.
-    var id: String { fullName }
+    var id: String { "\(type.rawValue):\(fullName)" }
 
     /// The name to display in the UI.
     var displayName: String { name }

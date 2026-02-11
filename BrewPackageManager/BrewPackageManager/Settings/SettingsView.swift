@@ -41,6 +41,12 @@ struct SettingsView: View {
     /// The release info for the available update.
     @State private var availableUpdate: ReleaseInfo?
 
+    /// Error message for CSV export failures.
+    @State private var exportErrorMessage: String?
+
+    /// Diagnostics for the most recently executed shell command.
+    @State private var lastCommandDiagnostics: CommandExecutionDiagnostics?
+
     // MARK: - Private Methods
 
     /// Presents a save panel and exports the package list to CSV.
@@ -59,7 +65,7 @@ struct SettingsView: View {
         do {
             try csvContent.write(to: url, atomically: true, encoding: .utf8)
         } catch {
-            // CSV save failed silently
+            exportErrorMessage = "Failed to export CSV: \(error.localizedDescription)"
         }
     }
 
@@ -163,6 +169,56 @@ struct SettingsView: View {
                             Text("Enables verbose logging for Homebrew commands")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+
+                            Divider()
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Last Command Diagnostics")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+
+                                if let diagnostics = lastCommandDiagnostics {
+                                    Text(diagnostics.statusSummary)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+
+                                    Text(diagnostics.commandLine)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+
+                                    Text(
+                                        "Stdout: \(diagnostics.stdoutBytesCaptured)/\(diagnostics.stdoutBytesTotal) bytes • " +
+                                        "Stderr: \(diagnostics.stderrBytesCaptured)/\(diagnostics.stderrBytesTotal) bytes"
+                                    )
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+
+                                    HStack(spacing: 12) {
+                                        Button("Copy Diagnostics") {
+                                            AppKitBridge.copyToClipboard(diagnostics.reportText)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .font(.caption2)
+
+                                        Button("Refresh") {
+                                            refreshLastCommandDiagnostics()
+                                        }
+                                        .buttonStyle(.plain)
+                                        .font(.caption2)
+                                    }
+                                } else {
+                                    Text("No command diagnostics recorded yet.")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+
+                                    Button("Refresh") {
+                                        refreshLastCommandDiagnostics()
+                                    }
+                                    .buttonStyle(.plain)
+                                    .font(.caption2)
+                                }
+                            }
                         }
                     }
 
@@ -217,6 +273,19 @@ struct SettingsView: View {
                 }
             }
         }
+        .alert("Export Failed", isPresented: .init(
+            get: { exportErrorMessage != nil },
+            set: { if !$0 { exportErrorMessage = nil } }
+        )) {
+            Button("OK") { exportErrorMessage = nil }
+        } message: {
+            if let exportErrorMessage {
+                Text(exportErrorMessage)
+            }
+        }
+        .onAppear {
+            refreshLastCommandDiagnostics()
+        }
     }
 
     // MARK: - Helper Methods
@@ -240,5 +309,10 @@ struct SettingsView: View {
         case .upToDate, .error:
             break
         }
+    }
+
+    /// Loads latest command diagnostics from persistence.
+    private func refreshLastCommandDiagnostics() {
+        lastCommandDiagnostics = CommandExecutor.loadLastDiagnostics()
     }
 }

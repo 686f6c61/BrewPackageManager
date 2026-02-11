@@ -5,6 +5,39 @@ All notable changes to BrewPackageManager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-02-10
+
+### Fixed
+
+- Fixed invalid menu bar symbol usage that generated repeated SwiftUI runtime faults (`cube.box.badge.ellipsis`).
+- Fixed export flow in Dependencies to avoid force-unwrapping the Downloads directory.
+- Fixed cleanup dry-run parsing by validating command exit code before interpreting output.
+- Fixed settings CSV export silent failures by surfacing write errors in UI.
+- Fixed package ID collisions by including package type in IDs (`formula:` / `cask:`).
+- Fixed pinned-package upgrade flow by resolving pinned formulae from Homebrew (`brew list --pinned`) and skipping them with actionable guidance.
+- Fixed package info/upgrade/uninstall routing to pass package type explicitly.
+- Fixed auto-refresh configuration to prevent duplicate loops on repeated `onAppear`.
+- Fixed cancellation handling in dependencies store operations.
+- Fixed update progress state reset after upgrade attempts to prevent the menu from appearing stuck in "Updating...".
+- Fixed unbounded command output capture that could cause high memory usage during long `brew upgrade` operations.
+- Fixed cache file counting to avoid loading every cache path into memory.
+- Fixed missing history logging in upgrade/search/install/uninstall/services/cleanup flows.
+- Fixed multiple Swift 6 concurrency warnings (actor isolation and sendability) in release/update/history parsing paths.
+
+### Changed
+
+- Updated app version to `1.8.0`.
+- Updated release scripts to remove hardcoded DerivedData hash paths.
+- Updated project configuration:
+  - valid bundle identifiers for app and test targets
+  - macOS deployment target aligned to `15.0`
+  - marketing version aligned to `1.8.0`
+- Updated in-app version labels to read from bundle metadata instead of hardcoded values.
+- Updated GitHub API User-Agent versioning to use bundle version at runtime.
+- Optimized dependency graph loading by using a single installed-info query instead of N+1 per package calls.
+- Added persistent last-command diagnostics (status/timeout/cancel/truncation) and surfaced them in `Settings > Advanced`.
+- Added bounded output capture support to `CommandExecutor` with truncation metadata.
+
 ## [1.7.0] - 2026-01-07
 
 ### Added
@@ -353,6 +386,8 @@ The package management logic, state management, CSV export functionality, and UI
 
 MIT License - Copyright (c) 2026
 
+[1.8.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.8.0
+[1.7.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.7.0
 [1.6.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.6.0
 [1.5.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.5.0
 [1.0.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.0.0

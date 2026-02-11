@@ -24,17 +24,20 @@ protocol BrewPackagesClientProtocol: Actor {
     /// Lists the names of all outdated packages.
     func listOutdatedPackages(debugMode: Bool) async throws -> [String]
 
+    /// Lists the names of all pinned formulae.
+    func listPinnedPackages(debugMode: Bool) async throws -> Set<String>
+
     /// Retrieves detailed information about a specific package.
-    func getPackageInfo(_ packageName: String, debugMode: Bool) async throws -> BrewPackageInfo
+    func getPackageInfo(_ packageName: String, type: PackageType?, debugMode: Bool) async throws -> BrewPackageInfo
 
     /// Upgrades a specific package to its latest version.
-    func upgradePackage(_ packageName: String, debugMode: Bool) async throws
+    func upgradePackage(_ packageName: String, type: PackageType, debugMode: Bool) async throws
 
     /// Upgrades all outdated packages to their latest versions.
     func upgradeAllPackages(debugMode: Bool) async throws
 
     /// Uninstalls a specific package.
-    func uninstallPackage(_ packageName: String, debugMode: Bool) async throws
+    func uninstallPackage(_ packageName: String, type: PackageType, debugMode: Bool) async throws
 
     /// Searches for packages matching the given query.
     ///

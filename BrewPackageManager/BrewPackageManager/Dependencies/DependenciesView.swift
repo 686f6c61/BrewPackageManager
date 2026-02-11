@@ -34,6 +34,9 @@ struct DependenciesView: View {
     /// Show export confirmation.
     @State private var showExportConfirmation = false
 
+    /// Active loading task for dependencies.
+    @State private var loadTask: Task<Void, Never>?
+
     // MARK: - Body
 
     var body: some View {
@@ -148,10 +151,15 @@ struct DependenciesView: View {
         .onAppear {
             // Only fetch if we don't have data and aren't already loading
             if dependenciesStore.dependencies.isEmpty && !dependenciesStore.isLoading {
-                Task {
+                loadTask?.cancel()
+                loadTask = Task {
                     await dependenciesStore.fetchAllDependencies()
                 }
             }
+        }
+        .onDisappear {
+            loadTask?.cancel()
+            loadTask = nil
         }
         .alert("Error", isPresented: .init(
             get: { dependenciesStore.lastError != nil },
@@ -197,7 +205,11 @@ struct DependenciesView: View {
             csv += "\"\(dep.packageName)\",\(dep.dependencyCount),\"\(deps)\",\"\(optionalDeps)\",\"\(buildDeps)\",\"\(usedBy)\"\n"
         }
 
-        let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+        guard let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first else {
+            dependenciesStore.lastError = AppError.unknown("Downloads folder was not found")
+            return
+        }
+
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let fileURL = downloadsURL.appendingPathComponent("brew-dependencies-\(timestamp).csv")
 

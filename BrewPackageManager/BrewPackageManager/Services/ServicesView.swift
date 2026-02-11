@@ -28,6 +28,9 @@ struct ServicesView: View {
     /// Services store for managing service operations.
     @State private var servicesStore = ServicesStore()
 
+    /// Active task for initial services load.
+    @State private var loadTask: Task<Void, Never>?
+
     // MARK: - Body
 
     var body: some View {
@@ -106,10 +109,15 @@ struct ServicesView: View {
         .onAppear {
             // Only fetch if we don't have data and aren't already loading
             if servicesStore.services.isEmpty && !servicesStore.isLoading {
-                Task {
+                loadTask?.cancel()
+                loadTask = Task {
                     await servicesStore.fetchServices()
                 }
             }
+        }
+        .onDisappear {
+            loadTask?.cancel()
+            loadTask = nil
         }
         .alert("Error", isPresented: .init(
             get: { servicesStore.lastError != nil },

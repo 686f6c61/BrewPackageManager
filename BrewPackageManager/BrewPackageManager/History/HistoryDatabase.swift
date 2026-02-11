@@ -125,7 +125,7 @@ private struct HistoryEntryDTO: Codable, Sendable {
     let details: String?
     let success: Bool
 
-    init(from entry: HistoryEntry) {
+    nonisolated init(from entry: HistoryEntry) {
         self.id = entry.id.uuidString
         self.timestamp = entry.timestamp.timeIntervalSince1970
         self.operation = entry.operation.rawValue

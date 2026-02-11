@@ -61,6 +61,11 @@ final class CleanupStore {
             cleanupInfo = info
             logger.info("Successfully fetched cleanup info: \(info.cacheSizeFormatted)")
         } catch let error as AppError {
+            if case .cancelled = error {
+                logger.debug("Cleanup info fetch cancelled")
+                isLoading = false
+                return
+            }
             logger.error("Failed to fetch cleanup info: \(error.localizedDescription)")
             lastError = error
         } catch {
@@ -87,15 +92,38 @@ final class CleanupStore {
             let result = try await client.performCleanup(pruneAll: pruneAll)
             lastCleanupResult = result
             logger.info("Cleanup completed successfully")
+            logHistory(
+                operation: .cleanup,
+                packageName: pruneAll ? "cleanup --prune=all" : "cleanup",
+                details: result,
+                success: true
+            )
 
             // Refresh cleanup info after operation
             await fetchCleanupInfo()
         } catch let error as AppError {
+            if case .cancelled = error {
+                logger.debug("Cleanup cancelled")
+                isCleaning = false
+                return
+            }
             logger.error("Failed to perform cleanup: \(error.localizedDescription)")
             lastError = error
+            logHistory(
+                operation: .cleanup,
+                packageName: pruneAll ? "cleanup --prune=all" : "cleanup",
+                details: error.localizedDescription,
+                success: false
+            )
         } catch {
             logger.error("Unexpected error during cleanup: \(error.localizedDescription)")
             lastError = AppError.unknown(error.localizedDescription)
+            logHistory(
+                operation: .cleanup,
+                packageName: pruneAll ? "cleanup --prune=all" : "cleanup",
+                details: error.localizedDescription,
+                success: false
+            )
         }
 
         isCleaning = false
@@ -115,17 +143,56 @@ final class CleanupStore {
             let freedBytes = try await client.clearCache()
             lastCleanupResult = "Freed \(ByteCountFormatter.string(fromByteCount: freedBytes, countStyle: .file))"
             logger.info("Cache cleared: \(freedBytes) bytes freed")
+            logHistory(
+                operation: .cleanup,
+                packageName: "clear cache",
+                details: lastCleanupResult,
+                success: true
+            )
 
             // Refresh cleanup info after operation
             await fetchCleanupInfo()
         } catch let error as AppError {
+            if case .cancelled = error {
+                logger.debug("Clear cache cancelled")
+                isCleaning = false
+                return
+            }
             logger.error("Failed to clear cache: \(error.localizedDescription)")
             lastError = error
+            logHistory(
+                operation: .cleanup,
+                packageName: "clear cache",
+                details: error.localizedDescription,
+                success: false
+            )
         } catch {
             logger.error("Unexpected error clearing cache: \(error.localizedDescription)")
             lastError = AppError.unknown(error.localizedDescription)
+            logHistory(
+                operation: .cleanup,
+                packageName: "clear cache",
+                details: error.localizedDescription,
+                success: false
+            )
         }
 
         isCleaning = false
+    }
+
+    private func logHistory(
+        operation: HistoryEntry.OperationType,
+        packageName: String,
+        details: String? = nil,
+        success: Bool = true
+    ) {
+        Task {
+            await HistoryStore.logOperation(
+                operation: operation,
+                packageName: packageName,
+                details: details,
+                success: success
+            )
+        }
     }
 }

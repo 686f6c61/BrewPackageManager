@@ -74,6 +74,8 @@ final class DependenciesStore {
             let allDeps = try await client.fetchAllDependencies()
             dependencies = allDeps.sorted { $0.packageName < $1.packageName }
             logger.info("Successfully fetched dependencies for \(allDeps.count) packages")
+        } catch is CancellationError {
+            logger.debug("Dependencies fetch cancelled")
         } catch let error as AppError {
             logger.error("Failed to fetch dependencies: \(error.localizedDescription)")
             lastError = error
@@ -100,6 +102,8 @@ final class DependenciesStore {
             let depInfo = try await client.fetchDependencies(for: packageName)
             selectedPackage = depInfo
             logger.info("Successfully fetched dependencies for \(packageName)")
+        } catch is CancellationError {
+            logger.debug("Dependencies fetch cancelled for \(packageName)")
         } catch let error as AppError {
             logger.error("Failed to fetch dependencies for \(packageName): \(error.localizedDescription)")
             lastError = error

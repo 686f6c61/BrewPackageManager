@@ -81,7 +81,7 @@ struct UpdateActionsSectionView: View {
                 HStack {
                     Image(systemName: "arrow.up.circle.fill")
 
-                    if let progress = store.upgradeProgress {
+                    if store.isUpgradingSelected, let progress = store.upgradeProgress {
                         Text("Updating \(progress.completed)/\(progress.total)...")
                     } else if hasSelection {
                         Text("Update Selected (\(selectionCount))")
@@ -102,7 +102,7 @@ struct UpdateActionsSectionView: View {
             .padding(.horizontal)
 
             // Progress bar
-            if let progress = store.upgradeProgress {
+            if store.isUpgradingSelected, let progress = store.upgradeProgress {
                 ProgressView(value: Double(progress.completed), total: Double(progress.total))
                     .padding(.horizontal)
 

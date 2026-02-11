@@ -73,6 +73,7 @@ struct MenuBarRootView: View {
                         Task {
                             await store.fetchPackageInfo(
                                 package.name,
+                                type: package.type,
                                 debugMode: settings.debugMode
                             )
                             if let info = store.selectedPackageInfo {
@@ -208,12 +209,10 @@ struct MenuBarRootView: View {
         .onAppear {
             Task {
                 // Only start auto-refresh if not already refreshing
-                if !store.isRefreshing && store.lastRefresh == nil {
-                    await store.runAutoRefresh(
-                        intervalSeconds: settings.autoRefreshInterval,
-                        debugMode: settings.debugMode
-                    )
-                }
+                store.configureAutoRefresh(
+                    intervalSeconds: settings.autoRefreshInterval,
+                    debugMode: settings.debugMode
+                )
 
                 // Check for updates if enabled and >24h since last check
                 if settings.checkForUpdatesEnabled,

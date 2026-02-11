@@ -38,6 +38,9 @@ actor ServicesClient {
         "HOMEBREW_NO_INSTALL_CLEANUP": "1"
     ]
 
+    /// Max bytes captured per stream for service mutations.
+    private let mutatingOutputCaptureLimitBytes = 262_144
+
     // MARK: - Initialization
 
     private func ensureBrewURL() async throws -> URL {
@@ -48,6 +51,12 @@ actor ServicesClient {
         let url = try await BrewLocator.locateBrew()
         brewURL = url
         return url
+    }
+
+    private func ensureNotCancelled(_ result: CommandResult) throws {
+        if result.wasCancelled {
+            throw AppError.cancelled
+        }
     }
 
     // MARK: - Public Methods
@@ -68,6 +77,7 @@ actor ServicesClient {
             environment: environment,
             timeout: .seconds(30)
         )
+        try ensureNotCancelled(result)
 
         guard result.exitCode == 0 else {
             logger.error("Failed to fetch services: \(result.stderr)")
@@ -103,8 +113,10 @@ actor ServicesClient {
             brewURL,
             arguments: ["services", "start", serviceName],
             environment: environment,
-            timeout: .seconds(30)
+            timeout: .seconds(30),
+            captureLimitBytes: mutatingOutputCaptureLimitBytes
         )
+        try ensureNotCancelled(result)
 
         guard result.exitCode == 0 else {
             logger.error("Failed to start service \(serviceName): \(result.stderr)")
@@ -130,8 +142,10 @@ actor ServicesClient {
             brewURL,
             arguments: ["services", "stop", serviceName],
             environment: environment,
-            timeout: .seconds(30)
+            timeout: .seconds(30),
+            captureLimitBytes: mutatingOutputCaptureLimitBytes
         )
+        try ensureNotCancelled(result)
 
         guard result.exitCode == 0 else {
             logger.error("Failed to stop service \(serviceName): \(result.stderr)")
@@ -157,8 +171,10 @@ actor ServicesClient {
             brewURL,
             arguments: ["services", "restart", serviceName],
             environment: environment,
-            timeout: .seconds(30)
+            timeout: .seconds(30),
+            captureLimitBytes: mutatingOutputCaptureLimitBytes
         )
+        try ensureNotCancelled(result)
 
         guard result.exitCode == 0 else {
             logger.error("Failed to restart service \(serviceName): \(result.stderr)")

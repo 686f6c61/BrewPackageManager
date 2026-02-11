@@ -27,6 +27,9 @@ struct StatisticsView: View {
     /// History store for accessing statistics data.
     @State private var historyStore = HistoryStore()
 
+    /// Active task for loading statistics history.
+    @State private var loadTask: Task<Void, Never>?
+
     // MARK: - Body
 
     var body: some View {
@@ -159,10 +162,15 @@ struct StatisticsView: View {
         .onAppear {
             // Only load if not already loading
             if !historyStore.isLoading {
-                Task {
+                loadTask?.cancel()
+                loadTask = Task {
                     await historyStore.loadHistory()
                 }
             }
+        }
+        .onDisappear {
+            loadTask?.cancel()
+            loadTask = nil
         }
     }
 }

@@ -78,7 +78,7 @@ final class UpdateChecker {
             }
 
         } catch let error as AppError {
-            logger.error("Update check failed: \(error.localizedDescription ?? "Unknown error")")
+            logger.error("Update check failed: \(error.localizedDescription)")
             return .error(error)
         } catch {
             logger.error("Unexpected error: \(error.localizedDescription)")

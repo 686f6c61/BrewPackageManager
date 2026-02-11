@@ -34,6 +34,9 @@ struct CleanupView: View {
     /// Whether to show cache clear confirmation dialog.
     @State private var showClearCacheConfirmation = false
 
+    /// Active task for initial cleanup info load.
+    @State private var loadTask: Task<Void, Never>?
+
     // MARK: - Body
 
     var body: some View {
@@ -198,10 +201,15 @@ struct CleanupView: View {
         .onAppear {
             // Only fetch if not already loading
             if !cleanupStore.isLoading {
-                Task {
+                loadTask?.cancel()
+                loadTask = Task {
                     await cleanupStore.fetchCleanupInfo()
                 }
             }
+        }
+        .onDisappear {
+            loadTask?.cancel()
+            loadTask = nil
         }
         .alert("Error", isPresented: .init(
             get: { cleanupStore.lastError != nil },

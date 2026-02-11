@@ -47,6 +47,11 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
         "HOMEBREW_NO_INSTALL_CLEANUP": "1"
     ]
 
+    /// Max bytes captured per stream for verbose mutating operations.
+    ///
+    /// Limits in-memory growth when commands like `brew upgrade` emit very large logs.
+    private let mutatingOutputCaptureLimitBytes = 1_048_576
+
     // MARK: - Error Mapping
 
     /// Maps execution errors to appropriate AppError types.
@@ -173,6 +178,46 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
         return try decodeOutdatedPackages(from: result.stdout)
     }
 
+    /// Lists all pinned formula names.
+    ///
+    /// This method executes `brew list --pinned` and parses line-delimited output.
+    ///
+    /// - Parameter debugMode: Whether to run the command in debug mode with verbose output.
+    /// - Returns: Set of pinned formula names.
+    /// - Throws: `AppError` for various failure conditions.
+    func listPinnedPackages(debugMode: Bool) async throws -> Set<String> {
+        let brewURL = try await ensureBrewURL()
+        let arguments = BrewPackagesArgumentsBuilder.listPinnedArguments(debugMode: debugMode)
+
+        logger.info("Running: brew \(arguments.joined(separator: " "))")
+
+        let result: CommandResult
+        do {
+            result = try await CommandExecutor.run(
+                brewURL,
+                arguments: arguments,
+                environment: environment,
+                timeout: .seconds(30)
+            )
+        } catch {
+            throw mapExecutionError(error)
+        }
+
+        try ensureNotCancelled(result)
+
+        guard result.isSuccess else {
+            logger.error("brew list --pinned failed: \(result.stderr)")
+            throw AppError.brewFailed(exitCode: result.exitCode, stderr: result.stderr)
+        }
+
+        let names = result.stdout
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        return Set(names)
+    }
+
     // MARK: - Package Info
 
     /// Retrieves detailed information about a specific package.
@@ -182,12 +227,17 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
     ///
     /// - Parameters:
     ///   - packageName: The name of the package to query.
+    ///   - type: Optional package type to disambiguate formula vs cask names.
     ///   - debugMode: Whether to run the command in debug mode with verbose output.
     /// - Returns: Detailed package information.
     /// - Throws: `AppError` for various failure conditions.
-    func getPackageInfo(_ packageName: String, debugMode: Bool) async throws -> BrewPackageInfo {
+    func getPackageInfo(_ packageName: String, type: PackageType?, debugMode: Bool) async throws -> BrewPackageInfo {
         let brewURL = try await ensureBrewURL()
-        let arguments = BrewPackagesArgumentsBuilder.infoArguments(packageName: packageName, debugMode: debugMode)
+        let arguments = BrewPackagesArgumentsBuilder.infoArguments(
+            packageName: packageName,
+            type: type,
+            debugMode: debugMode
+        )
 
         logger.info("Running: brew \(arguments.joined(separator: " "))")
 
@@ -221,11 +271,16 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
     ///
     /// - Parameters:
     ///   - packageName: The name of the package to upgrade.
+    ///   - type: The package type (formula or cask).
     ///   - debugMode: Whether to run the command in debug mode with verbose output.
     /// - Throws: `AppError` for various failure conditions.
-    func upgradePackage(_ packageName: String, debugMode: Bool) async throws {
+    func upgradePackage(_ packageName: String, type: PackageType, debugMode: Bool) async throws {
         let brewURL = try await ensureBrewURL()
-        let arguments = BrewPackagesArgumentsBuilder.upgradePackageArguments(packageName: packageName, debugMode: debugMode)
+        let arguments = BrewPackagesArgumentsBuilder.upgradePackageArguments(
+            packageName: packageName,
+            type: type,
+            debugMode: debugMode
+        )
 
         logger.info("Running: brew \(arguments.joined(separator: " "))")
 
@@ -235,7 +290,8 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
                 brewURL,
                 arguments: arguments,
                 environment: environment,
-                timeout: .seconds(600) // 10 minutes for upgrades
+                timeout: .seconds(600), // 10 minutes for upgrades
+                captureLimitBytes: mutatingOutputCaptureLimitBytes
             )
         } catch {
             throw mapExecutionError(error)
@@ -270,7 +326,8 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
                 brewURL,
                 arguments: arguments,
                 environment: environment,
-                timeout: .seconds(1800) // 30 minutes for upgrade all
+                timeout: .seconds(1800), // 30 minutes for upgrade all
+                captureLimitBytes: mutatingOutputCaptureLimitBytes
             )
         } catch {
             throw mapExecutionError(error)
@@ -294,11 +351,16 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
     ///
     /// - Parameters:
     ///   - packageName: The name of the package to uninstall.
+    ///   - type: The package type (formula or cask).
     ///   - debugMode: Whether to run the command in debug mode with verbose output.
     /// - Throws: `AppError` for various failure conditions.
-    func uninstallPackage(_ packageName: String, debugMode: Bool) async throws {
+    func uninstallPackage(_ packageName: String, type: PackageType, debugMode: Bool) async throws {
         let brewURL = try await ensureBrewURL()
-        let arguments = BrewPackagesArgumentsBuilder.uninstallPackageArguments(packageName: packageName, debugMode: debugMode)
+        let arguments = BrewPackagesArgumentsBuilder.uninstallPackageArguments(
+            packageName: packageName,
+            type: type,
+            debugMode: debugMode
+        )
 
         logger.info("Running: brew \(arguments.joined(separator: " "))")
 
@@ -308,7 +370,8 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
                 brewURL,
                 arguments: arguments,
                 environment: environment,
-                timeout: .seconds(120) // 2 minutes for uninstall
+                timeout: .seconds(120), // 2 minutes for uninstall
+                captureLimitBytes: mutatingOutputCaptureLimitBytes
             )
         } catch {
             throw mapExecutionError(error)
@@ -385,7 +448,16 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
     /// - Throws: `AppError` for various failure conditions.
     func installPackage(_ packageName: String, type: PackageType, debugMode: Bool) async throws {
         let brewURL = try await ensureBrewURL()
-        let arguments = BrewPackagesArgumentsBuilder.installPackageArguments(packageName: packageName, type: type, debugMode: debugMode)
+        let resolvedType = try await resolveInstallType(
+            packageName: packageName,
+            preferredType: type,
+            debugMode: debugMode
+        )
+        let arguments = BrewPackagesArgumentsBuilder.installPackageArguments(
+            packageName: packageName,
+            type: resolvedType,
+            debugMode: debugMode
+        )
 
         logger.info("Running: brew \(arguments.joined(separator: " "))")
 
@@ -395,7 +467,8 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
                 brewURL,
                 arguments: arguments,
                 environment: environment,
-                timeout: .seconds(600) // 10 minutes for installation
+                timeout: .seconds(600), // 10 minutes for installation
+                captureLimitBytes: mutatingOutputCaptureLimitBytes
             )
         } catch {
             throw mapExecutionError(error)
@@ -409,6 +482,57 @@ actor BrewPackagesClient: BrewPackagesClientProtocol {
         }
 
         logger.info("Successfully installed \(packageName)")
+    }
+
+    /// Resolves package type before installation to avoid cask-only packages being treated as formulae.
+    private func resolveInstallType(
+        packageName: String,
+        preferredType: PackageType,
+        debugMode: Bool
+    ) async throws -> PackageType {
+        let brewURL = try await ensureBrewURL()
+        let arguments = BrewPackagesArgumentsBuilder.infoArguments(
+            packageName: packageName,
+            type: nil,
+            debugMode: debugMode
+        )
+
+        let result: CommandResult
+        do {
+            result = try await CommandExecutor.run(
+                brewURL,
+                arguments: arguments,
+                environment: environment,
+                timeout: .seconds(20)
+            )
+        } catch {
+            throw mapExecutionError(error)
+        }
+
+        try ensureNotCancelled(result)
+
+        guard result.isSuccess else {
+            // Preserve previous behavior if we cannot resolve package type.
+            return preferredType
+        }
+
+        do {
+            let response = try BrewInfoResponse.decode(from: result.stdout)
+            let hasFormula = !response.formulae.isEmpty
+            let hasCask = !response.casks.isEmpty
+
+            if hasFormula && !hasCask {
+                return .formula
+            }
+
+            if hasCask && !hasFormula {
+                return .cask
+            }
+
+            return preferredType
+        } catch {
+            return preferredType
+        }
     }
 
     // MARK: - Decoding

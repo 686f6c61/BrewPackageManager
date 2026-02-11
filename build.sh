@@ -1,23 +1,26 @@
 #!/bin/bash
-# Build script for BrewPackageManager without App Sandbox
+# Build script for BrewPackageManager without App Sandbox.
 
-set -e
+set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$PROJECT_DIR/BrewPackageManager"
+PROJECT_PATH="${PROJECT_DIR}/BrewPackageManager/BrewPackageManager.xcodeproj"
+DERIVED_DATA_PATH="${PROJECT_DIR}/.derived-debug"
+APP_PATH="${DERIVED_DATA_PATH}/Build/Products/Debug/BrewPackageManager.app"
 
-echo "🔨 Building BrewPackageManager..."
-echo "📦 Disabling App Sandbox to allow Homebrew command execution..."
+echo "Building BrewPackageManager (Debug)..."
+echo "Disabling App Sandbox to allow Homebrew command execution..."
 
 xcodebuild \
-    -project BrewPackageManager.xcodeproj \
+    -project "${PROJECT_PATH}" \
     -scheme BrewPackageManager \
     -configuration Debug \
+    -derivedDataPath "${DERIVED_DATA_PATH}" \
     ENABLE_APP_SANDBOX=NO \
     clean build
 
 echo ""
-echo "✅ Build succeeded!"
-echo "📍 App location: ~/Library/Developer/Xcode/DerivedData/BrewPackageManager-*/Build/Products/Debug/BrewPackageManager.app"
+echo "Build succeeded."
+echo "App location: ${APP_PATH}"
 echo ""
-echo "🚀 To run: open ~/Library/Developer/Xcode/DerivedData/BrewPackageManager-bupfwhlthlwasaebrplbxtjhofih/Build/Products/Debug/BrewPackageManager.app"
+echo "To run: open \"${APP_PATH}\""

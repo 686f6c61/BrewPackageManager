@@ -91,6 +91,15 @@ final class PackagesStore {
     /// Whether a refresh has been requested while another is in progress.
     private var pendingRefreshRequest = false
 
+    /// Last known set of pinned formula names (short and full).
+    private var pinnedFormulaNames: Set<String> = []
+
+    /// Active auto-refresh task configured for current settings.
+    private var autoRefreshTask: Task<Void, Never>?
+
+    /// Last auto-refresh configuration used to avoid duplicate loops.
+    private var autoRefreshConfiguration: (intervalSeconds: Int, debugMode: Bool)?
+
     // MARK: - Update Checking
 
     /// Update checker for managing application updates.
@@ -239,9 +248,9 @@ final class PackagesStore {
             let outdatedSet = Set(outdatedNames)
 
             // Merge the data
-            var packages = installed
-            for index in packages.indices {
-                packages[index].isOutdated = outdatedSet.contains(packages[index].name)
+            let pinnedNames = await fetchPinnedFormulaNames(debugMode: debugMode)
+            let packages = installed.map {
+                mergedPackage($0, outdatedSet: outdatedSet, pinnedNames: pinnedNames)
             }
 
             let now = Date()
@@ -250,6 +259,12 @@ final class PackagesStore {
 
             state = .loaded(packages)
             logger.info("Loaded \(packages.count) packages (\(self.outdatedCount) outdated)")
+            logHistory(
+                operation: .refresh,
+                packageName: "packages",
+                details: "Loaded \(packages.count) packages (\(self.outdatedCount) outdated)",
+                success: true
+            )
         } catch is CancellationError {
             state = previousState
             logger.debug("Refresh cancelled")
@@ -266,6 +281,7 @@ final class PackagesStore {
             } else {
                 handleError(error)
             }
+            logHistory(operation: .refresh, packageName: "packages", details: error.localizedDescription, success: false)
         } catch let error as BrewLocatorError {
             if let existingPackages {
                 state = .loaded(existingPackages)
@@ -274,6 +290,7 @@ final class PackagesStore {
                 state = .error(.brewNotFound)
                 logger.error("Brew not found: \(error.localizedDescription)")
             }
+            logHistory(operation: .refresh, packageName: "packages", details: error.localizedDescription, success: false)
         } catch {
             if let existingPackages {
                 state = .loaded(existingPackages)
@@ -282,6 +299,7 @@ final class PackagesStore {
                 state = .error(.brewFailed(exitCode: -1, stderr: error.localizedDescription))
             }
             logger.error("Unknown error: \(error.localizedDescription)")
+            logHistory(operation: .refresh, packageName: "packages", details: error.localizedDescription, success: false)
         }
 
         if pendingRefreshRequest {
@@ -314,6 +332,37 @@ final class PackagesStore {
         }
     }
 
+    /// Configures a single auto-refresh loop for the given settings.
+    ///
+    /// Calling this repeatedly with the same settings is a no-op while a loop is active.
+    func configureAutoRefresh(intervalSeconds: Int, debugMode: Bool = false) {
+        let normalizedInterval = max(0, intervalSeconds)
+        let configuration: (intervalSeconds: Int, debugMode: Bool) = (normalizedInterval, debugMode)
+
+        if let current = autoRefreshConfiguration, current == configuration {
+            if autoRefreshTask != nil {
+                return
+            }
+
+            if normalizedInterval == 0, lastRefresh != nil {
+                return
+            }
+        }
+
+        autoRefreshConfiguration = configuration
+        autoRefreshTask?.cancel()
+        autoRefreshTask = Task { [weak self] in
+            guard let self else { return }
+            await self.runAutoRefresh(intervalSeconds: normalizedInterval, debugMode: debugMode)
+            await MainActor.run {
+                if let currentConfiguration = self.autoRefreshConfiguration,
+                   currentConfiguration == configuration {
+                    self.autoRefreshTask = nil
+                }
+            }
+        }
+    }
+
     /// Toggles selection state for a package.
     ///
     /// - Parameter packageID: The ID of the package to toggle.
@@ -325,9 +374,19 @@ final class PackagesStore {
         }
     }
 
+    /// Returns whether a package is pinned in Homebrew.
+    func isPackagePinned(_ package: BrewPackage) -> Bool {
+        isPackagePinned(package, pinnedNames: pinnedFormulaNames)
+    }
+
     /// Selects all packages that have updates available.
     func selectAllOutdated() {
-        selectedPackageIDs = Set(outdatedPackages.map { $0.id })
+        // Skip pinned packages because Homebrew refuses to upgrade them.
+        selectedPackageIDs = Set(
+            outdatedPackages
+                .filter { !isPackagePinned($0) }
+                .map { $0.id }
+        )
     }
 
     /// Deselects all packages.
@@ -343,21 +402,48 @@ final class PackagesStore {
     ///
     /// - Parameter debugMode: Whether to run commands in debug mode with verbose output.
     func upgradeSelected(debugMode: Bool = false) async {
+        guard !isUpgradingSelected else { return }
+
         let selectedPackages = packages.filter { selectedPackageIDs.contains($0.id) }
         guard !selectedPackages.isEmpty else { return }
 
-        logger.info("Upgrading \(selectedPackages.count) selected packages")
+        let pinnedNames = await fetchPinnedFormulaNames(debugMode: debugMode)
+        let pinnedPackages = selectedPackages.filter { isPackagePinned($0, pinnedNames: pinnedNames) }
+        let upgradablePackages = selectedPackages.filter { !isPackagePinned($0, pinnedNames: pinnedNames) }
+
+        if !pinnedPackages.isEmpty {
+            for package in pinnedPackages {
+                let message = "Package '\(package.name)' is pinned. Run 'brew unpin \(package.name)' to upgrade."
+                packageOperations[package.id] = PackageOperation(
+                    status: .failed,
+                    error: .unknown(message),
+                    diagnostics: message
+                )
+                logHistory(operation: .upgrade, packageName: package.name, details: message, success: false)
+            }
+        }
+
+        if upgradablePackages.isEmpty {
+            if !pinnedPackages.isEmpty {
+                let names = pinnedPackages.map(\.name).sorted().joined(separator: ", ")
+                nonFatalError = .unknown("Selected package(s) are pinned: \(names). Use 'brew unpin <name>' and try again.")
+            }
+            return
+        }
+
+        logger.info("Upgrading \(upgradablePackages.count) selected packages")
 
         isUpgradingSelected = true
-        upgradeProgress = UpgradeProgress(completed: 0, total: selectedPackages.count, currentPackage: nil, failed: 0)
+        upgradeProgress = UpgradeProgress(completed: 0, total: upgradablePackages.count, currentPackage: nil, failed: 0)
 
         var completed = 0
         var failed = 0
+        var firstFailure: AppError?
 
-        for package in selectedPackages {
+        for package in upgradablePackages {
             upgradeProgress = UpgradeProgress(
                 completed: completed,
-                total: selectedPackages.count,
+                total: upgradablePackages.count,
                 currentPackage: package.name,
                 failed: failed
             )
@@ -365,28 +451,39 @@ final class PackagesStore {
             packageOperations[package.id] = PackageOperation(status: .running, error: nil, diagnostics: nil)
 
             do {
-                try await client.upgradePackage(package.name, debugMode: debugMode)
+                try await client.upgradePackage(package.name, type: package.type, debugMode: debugMode)
                 packageOperations[package.id] = PackageOperation(status: .succeeded, error: nil, diagnostics: nil)
+                logHistory(operation: .upgrade, packageName: package.name, success: true)
             } catch let error as AppError {
                 if case .cancelled = error {
                     logger.debug("Upgrade cancelled")
                     packageOperations[package.id] = .idle
+                    logHistory(operation: .upgrade, packageName: package.name, details: "Operation cancelled", success: false)
                     break
                 }
+                let mappedError = mapUpgradeError(error, packageName: package.name)
                 failed += 1
+                if firstFailure == nil {
+                    firstFailure = mappedError
+                }
                 packageOperations[package.id] = PackageOperation(
                     status: .failed,
-                    error: error,
-                    diagnostics: "Failed to upgrade \(package.name): \(error.localizedDescription)"
+                    error: mappedError,
+                    diagnostics: "Failed to upgrade \(package.name): \(mappedError.localizedDescription)"
                 )
+                logHistory(operation: .upgrade, packageName: package.name, details: mappedError.localizedDescription, success: false)
             } catch {
                 failed += 1
                 let appError = AppError.brewFailed(exitCode: -1, stderr: error.localizedDescription)
+                if firstFailure == nil {
+                    firstFailure = appError
+                }
                 packageOperations[package.id] = PackageOperation(
                     status: .failed,
                     error: appError,
                     diagnostics: "Failed to upgrade \(package.name): \(error.localizedDescription)"
                 )
+                logHistory(operation: .upgrade, packageName: package.name, details: error.localizedDescription, success: false)
             }
 
             completed += 1
@@ -394,19 +491,31 @@ final class PackagesStore {
 
         upgradeProgress = UpgradeProgress(
             completed: completed,
-            total: selectedPackages.count,
+            total: upgradablePackages.count,
             currentPackage: nil,
             failed: failed
         )
 
         isUpgradingSelected = false
-
-        // Refresh to get updated state
-        await refresh(debugMode: debugMode, force: true)
+        upgradeProgress = nil
 
         // Clear selections after successful upgrade
         if failed == 0 {
+            let pinnedIDs = Set(pinnedPackages.map(\.id))
+            selectedPackageIDs.subtract(pinnedIDs)
             deselectAll()
+        } else if let firstFailure {
+            nonFatalError = firstFailure
+        }
+
+        if !pinnedPackages.isEmpty, failed == 0 {
+            let names = pinnedPackages.map(\.name).sorted().joined(separator: ", ")
+            nonFatalError = .unknown("Skipped pinned package(s): \(names). Use 'brew unpin <name>' to upgrade.")
+        }
+
+        // Refresh in background so the UI does not appear stuck in an updating state.
+        Task {
+            await refresh(debugMode: debugMode, force: true)
         }
     }
 
@@ -426,8 +535,9 @@ final class PackagesStore {
         packageOperations[packageID] = PackageOperation(status: .running, error: nil, diagnostics: nil)
 
         do {
-            try await client.uninstallPackage(package.name, debugMode: debugMode)
+            try await client.uninstallPackage(package.name, type: package.type, debugMode: debugMode)
             packageOperations[packageID] = PackageOperation(status: .succeeded, error: nil, diagnostics: nil)
+            logHistory(operation: .uninstall, packageName: package.name, success: true)
 
             // Refresh to update package list
             await refresh(debugMode: debugMode, force: true)
@@ -445,6 +555,7 @@ final class PackagesStore {
                 error: error,
                 diagnostics: "Failed to uninstall \(package.name): \(error.localizedDescription)"
             )
+            logHistory(operation: .uninstall, packageName: package.name, details: error.localizedDescription, success: false)
         } catch {
             let appError = AppError.brewFailed(exitCode: -1, stderr: error.localizedDescription)
             packageOperations[packageID] = PackageOperation(
@@ -452,6 +563,7 @@ final class PackagesStore {
                 error: appError,
                 diagnostics: "Failed to uninstall \(package.name): \(error.localizedDescription)"
             )
+            logHistory(operation: .uninstall, packageName: package.name, details: error.localizedDescription, success: false)
         }
     }
 
@@ -461,12 +573,13 @@ final class PackagesStore {
     ///
     /// - Parameters:
     ///   - packageName: The name of the package to query.
+    ///   - type: Optional package type to disambiguate formula vs cask names.
     ///   - debugMode: Whether to run commands in debug mode with verbose output.
-    func fetchPackageInfo(_ packageName: String, debugMode: Bool = false) async {
+    func fetchPackageInfo(_ packageName: String, type: PackageType? = nil, debugMode: Bool = false) async {
         logger.info("Fetching info for \(packageName)")
 
         do {
-            selectedPackageInfo = try await client.getPackageInfo(packageName, debugMode: debugMode)
+            selectedPackageInfo = try await client.getPackageInfo(packageName, type: type, debugMode: debugMode)
             logger.info("Fetched info for \(packageName)")
         } catch let error as AppError {
             if case .cancelled = error {
@@ -530,6 +643,71 @@ final class PackagesStore {
         return value
     }
 
+    /// Loads pinned formula names from Homebrew and keeps last known state.
+    private func fetchPinnedFormulaNames(debugMode: Bool) async -> Set<String> {
+        do {
+            let rawNames = try await client.listPinnedPackages(debugMode: debugMode)
+            let normalized = normalizePinnedNames(rawNames)
+            pinnedFormulaNames = normalized
+            return normalized
+        } catch {
+            logger.warning("Failed to list pinned packages: \(error.localizedDescription)")
+            return pinnedFormulaNames
+        }
+    }
+
+    /// Normalizes pinned names to include both short name and full name variants.
+    private func normalizePinnedNames(_ names: Set<String>) -> Set<String> {
+        var normalized = Set<String>()
+        for name in names {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            normalized.insert(trimmed)
+            if let shortName = trimmed.split(separator: "/").last {
+                normalized.insert(String(shortName))
+            }
+        }
+        return normalized
+    }
+
+    /// Merges outdated and pinned metadata into a package snapshot.
+    private func mergedPackage(
+        _ package: BrewPackage,
+        outdatedSet: Set<String>,
+        pinnedNames: Set<String>
+    ) -> BrewPackage {
+        let pinned = isPackagePinned(package, pinnedNames: pinnedNames)
+        return BrewPackage(
+            name: package.name,
+            fullName: package.fullName,
+            desc: package.desc,
+            homepage: package.homepage,
+            type: package.type,
+            installedVersion: package.installedVersion,
+            currentVersion: package.currentVersion,
+            isOutdated: outdatedSet.contains(package.name),
+            pinnedVersion: pinned ? (package.pinnedVersion ?? package.installedVersion) : nil,
+            tap: package.tap
+        )
+    }
+
+    private func isPackagePinned(_ package: BrewPackage, pinnedNames: Set<String>) -> Bool {
+        guard package.type == .formula else { return false }
+        if package.pinnedVersion != nil { return true }
+        return pinnedNames.contains(package.name) || pinnedNames.contains(package.fullName)
+    }
+
+    private func mapUpgradeError(_ error: AppError, packageName: String) -> AppError {
+        guard case .brewFailed(_, let stderr) = error else { return error }
+        guard isPinnedUpgradeFailure(stderr) else { return error }
+        return .unknown("Package '\(packageName)' is pinned. Run 'brew unpin \(packageName)' and try again.")
+    }
+
+    private func isPinnedUpgradeFailure(_ stderr: String) -> Bool {
+        let message = stderr.lowercased()
+        return message.contains("not upgrading") && message.contains("pinned")
+    }
+
     // MARK: - Private Methods
 
     /// Sets the state to error and logs the error.
@@ -576,6 +754,23 @@ final class PackagesStore {
         }
     }
 
+    /// Logs an operation to history without blocking UI flow.
+    private func logHistory(
+        operation: HistoryEntry.OperationType,
+        packageName: String,
+        details: String? = nil,
+        success: Bool = true
+    ) {
+        Task {
+            await HistoryStore.logOperation(
+                operation: operation,
+                packageName: packageName,
+                details: details,
+                success: success
+            )
+        }
+    }
+
     // MARK: - Search Operations
 
     /// Performs a package search.
@@ -597,39 +792,59 @@ final class PackagesStore {
         searchState = .searching(query: query)
 
         do {
-            // Search for packages
-            let names = try await client.searchPackages(
-                query,
-                type: searchTypeFilter,
-                debugMode: debugMode
-            )
+            let installedTypesByName = Dictionary(
+                grouping: packages,
+                by: { $0.name }
+            ).mapValues { Set($0.map(\.type)) }
 
-            // Get installed package names for comparison
-            let installedNames = Set(packages.map { $0.name })
+            let typedMatches: [(name: String, type: PackageType)]
+            if let filter = searchTypeFilter {
+                let names = try await client.searchPackages(query, type: filter, debugMode: debugMode)
+                typedMatches = names.map { (name: $0, type: filter) }
+            } else {
+                let formulaNames = try await client.searchPackages(query, type: .formula, debugMode: debugMode)
+                let caskNames = try await client.searchPackages(query, type: .cask, debugMode: debugMode)
 
-            // Create search results (limit to first page)
-            let hasMore = names.count > searchPageSize
-            let pageNames = Array(names.prefix(searchPageSize))
+                var deduplicated: [(name: String, type: PackageType)] = []
+                var seenKeys = Set<String>()
 
-            searchResults = pageNames.map { name in
-                // Determine type - check if it's a known installed package first
-                let type: PackageType
-                if let installedPackage = packages.first(where: { $0.name == name }) {
-                    type = installedPackage.type
-                } else {
-                    // Default to formula if no filter, otherwise use the filter
-                    type = searchTypeFilter ?? .formula
+                for name in formulaNames {
+                    let key = "\(PackageType.formula.rawValue):\(name)"
+                    if seenKeys.insert(key).inserted {
+                        deduplicated.append((name: name, type: .formula))
+                    }
                 }
 
+                for name in caskNames {
+                    let key = "\(PackageType.cask.rawValue):\(name)"
+                    if seenKeys.insert(key).inserted {
+                        deduplicated.append((name: name, type: .cask))
+                    }
+                }
+
+                typedMatches = deduplicated
+            }
+
+            let hasMore = typedMatches.count > searchPageSize
+            let pageMatches = Array(typedMatches.prefix(searchPageSize))
+
+            searchResults = pageMatches.map { match in
+                let installedTypes = installedTypesByName[match.name] ?? []
                 return SearchResult(
-                    name: name,
-                    type: type,
-                    isInstalled: installedNames.contains(name)
+                    name: match.name,
+                    type: match.type,
+                    isInstalled: installedTypes.contains(match.type)
                 )
             }
 
             searchState = .loaded(query: query, results: searchResults, hasMore: hasMore)
-            logger.info("Found \(names.count) packages (\(self.searchResults.count) shown)")
+            logger.info("Found \(typedMatches.count) packages (\(self.searchResults.count) shown)")
+            logHistory(
+                operation: .search,
+                packageName: query,
+                details: "Found \(typedMatches.count) results",
+                success: true
+            )
 
         } catch let error as AppError {
             if case .cancelled = error {
@@ -639,10 +854,12 @@ final class PackagesStore {
             }
             searchState = .error(error)
             logger.error("Search failed: \(error.localizedDescription)")
+            logHistory(operation: .search, packageName: query, details: error.localizedDescription, success: false)
         } catch {
             let appError = AppError.brewFailed(exitCode: -1, stderr: error.localizedDescription)
             searchState = .error(appError)
             logger.error("Search failed: \(error.localizedDescription)")
+            logHistory(operation: .search, packageName: query, details: error.localizedDescription, success: false)
         }
     }
 
@@ -671,7 +888,7 @@ final class PackagesStore {
         }
 
         do {
-            let info = try await client.getPackageInfo(result.name, debugMode: debugMode)
+            let info = try await client.getPackageInfo(result.name, type: result.type, debugMode: debugMode)
             searchResults[index].info = info
         } catch {
             logger.error("Failed to fetch info for \(result.name): \(error.localizedDescription)")
@@ -705,6 +922,7 @@ final class PackagesStore {
                 error: nil,
                 diagnostics: nil
             )
+            logHistory(operation: .install, packageName: result.name, success: true)
 
             // Refresh package list to show newly installed package
             await refresh(debugMode: debugMode, force: true)
@@ -734,6 +952,7 @@ final class PackagesStore {
                 error: error,
                 diagnostics: "Failed to install \(result.name): \(error.localizedDescription)"
             )
+            logHistory(operation: .install, packageName: result.name, details: error.localizedDescription, success: false)
         } catch {
             let appError = AppError.brewFailed(exitCode: -1, stderr: error.localizedDescription)
             installOperations[result.name] = PackageOperation(
@@ -741,6 +960,7 @@ final class PackagesStore {
                 error: appError,
                 diagnostics: "Failed to install \(result.name): \(error.localizedDescription)"
             )
+            logHistory(operation: .install, packageName: result.name, details: error.localizedDescription, success: false)
         }
     }
 
@@ -794,7 +1014,7 @@ final class PackagesStore {
         case .updateAvailable(let release):
             logger.info("Update available: \(release.version)")
         case .error(let error):
-            logger.error("Update check failed: \(error.localizedDescription ?? "Unknown error")")
+            logger.error("Update check failed: \(error.localizedDescription)")
         }
     }
 }

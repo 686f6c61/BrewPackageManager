@@ -61,14 +61,21 @@ struct PackageMenuItemView: View {
         HStack(spacing: 8) {
             // Checkbox (only for outdated packages)
             if package.hasUpdate {
-                Button {
-                    store.toggleSelection(for: package.id)
-                } label: {
-                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                        .foregroundStyle(isSelected ? .blue : .secondary)
+                if store.isPackagePinned(package) {
+                    Image(systemName: "pin.fill")
+                        .foregroundStyle(.orange)
+                        .frame(width: 20)
+                        .help("Pinned package. Run 'brew unpin \(package.name)' to upgrade.")
+                } else {
+                    Button {
+                        store.toggleSelection(for: package.id)
+                    } label: {
+                        Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                            .foregroundStyle(isSelected ? .blue : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 20)
                 }
-                .buttonStyle(.plain)
-                .frame(width: 20)
             } else {
                 Image(systemName: package.type.systemImage)
                     .foregroundStyle(.secondary)

@@ -17,7 +17,7 @@ import Foundation
 ///
 /// This structure maps the JSON output from Homebrew's info command, which
 /// contains arrays of formulae (command-line tools) and casks (GUI applications).
-struct BrewInfoResponse: Codable, Sendable {
+nonisolated struct BrewInfoResponse: Codable, Sendable {
 
     /// Decodes a BrewInfoResponse from a JSON string.
     ///
@@ -52,6 +52,10 @@ struct BrewInfoResponse: Codable, Sendable {
         let versions: Versions
         let urls: URLs?
         let installed: [Installed]?
+        let dependencies: [String]?
+        let optionalDependencies: [String]?
+        let buildDependencies: [String]?
+        let usedBy: [String]?
         let linkedKeg: String?
         let pinned: Bool?
         let outdated: Bool?
@@ -89,6 +93,10 @@ struct BrewInfoResponse: Codable, Sendable {
         enum CodingKeys: String, CodingKey {
             case name, desc, license, homepage, versions, urls, installed, pinned, outdated
             case fullName = "full_name"
+            case dependencies
+            case optionalDependencies = "optional_dependencies"
+            case buildDependencies = "build_dependencies"
+            case usedBy = "used_by"
             case linkedKeg = "linked_keg"
             case tap
         }
@@ -128,7 +136,7 @@ struct BrewInfoResponse: Codable, Sendable {
 ///
 /// This structure maps the JSON output from Homebrew's outdated command, which
 /// lists packages that have updates available.
-struct BrewOutdatedResponse: Codable, Sendable {
+nonisolated struct BrewOutdatedResponse: Codable, Sendable {
 
     /// Decodes a BrewOutdatedResponse from a JSON string.
     ///

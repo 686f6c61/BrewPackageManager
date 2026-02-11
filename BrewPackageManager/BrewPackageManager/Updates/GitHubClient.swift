@@ -29,6 +29,9 @@ actor GitHubClient {
     /// URL session for network requests.
     private let session: URLSession
 
+    /// User-Agent value used for GitHub API requests.
+    private let userAgent: String
+
     /// Timeout for network requests (10 seconds).
     private let timeout: TimeInterval = 10.0
 
@@ -41,6 +44,8 @@ actor GitHubClient {
 
     init(session: URLSession = .shared) {
         self.session = session
+        let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.8.0"
+        self.userAgent = "BrewPackageManager/\(version)"
     }
 
     // MARK: - Methods
@@ -60,7 +65,7 @@ actor GitHubClient {
 
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "GET"
-        request.setValue("BrewPackageManager/1.6.0", forHTTPHeaderField: "User-Agent")
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
 
         logger.info("Fetching latest release from GitHub...")

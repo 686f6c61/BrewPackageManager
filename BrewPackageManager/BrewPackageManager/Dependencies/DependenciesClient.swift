@@ -50,6 +50,12 @@ actor DependenciesClient {
         return url
     }
 
+    private func ensureNotCancelled(_ result: CommandResult) throws {
+        if result.wasCancelled {
+            throw AppError.cancelled
+        }
+    }
+
     // MARK: - Public Methods
 
     /// Fetch dependency information for a specific package.
@@ -69,6 +75,7 @@ actor DependenciesClient {
             environment: environment,
             timeout: .seconds(30)
         )
+        try ensureNotCancelled(result)
 
         guard result.exitCode == 0 else {
             logger.error("Failed to fetch dependencies for \(packageName): \(result.stderr)")
@@ -105,48 +112,73 @@ actor DependenciesClient {
     func fetchAllDependencies() async throws -> [DependencyInfo] {
         logger.info("Fetching dependencies for all installed packages")
 
-        // Get list of installed packages
         let brewURL = try await ensureBrewURL()
-        let listResult = try await CommandExecutor.run(
+        let result = try await CommandExecutor.run(
             brewURL,
-            arguments: ["list", "--formula"],
+            arguments: ["info", "--json=v2", "--installed"],
             environment: environment,
-            timeout: .seconds(30)
+            timeout: .seconds(120)
         )
+        try ensureNotCancelled(result)
 
-        guard listResult.exitCode == 0 else {
-            logger.error("Failed to list packages: \(listResult.stderr)")
+        guard result.exitCode == 0 else {
+            logger.error("Failed to fetch installed package info: \(result.stderr)")
             throw AppError.shellCommandFailed(
-                command: "brew list --formula",
-                exitCode: listResult.exitCode,
-                stderr: listResult.stderr
+                command: "brew info --json=v2 --installed",
+                exitCode: result.exitCode,
+                stderr: result.stderr
             )
         }
 
-        let packages = listResult.stdout
-            .split(separator: "\n")
-            .map { String($0).trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let response: BrewInfoResponse
+        do {
+            response = try BrewInfoResponse.decode(from: result.stdout)
+        } catch {
+            logger.error("Failed to decode installed package info: \(error.localizedDescription)")
+            throw AppError.invalidJSONResponse(command: "brew info --json=v2 --installed")
+        }
 
-        logger.info("Fetching dependencies for \(packages.count) packages")
+        let dependencies = buildDependencyGraph(from: response.formulae)
+        logger.info("Successfully fetched dependencies for \(dependencies.count) packages")
+        return dependencies
+    }
 
-        // Fetch dependencies for each package
-        var allDeps: [DependencyInfo] = []
+    /// Builds `DependencyInfo` entries and reverse dependency links from installed formulae.
+    private func buildDependencyGraph(from formulae: [BrewInfoResponse.Formula]) -> [DependencyInfo] {
+        var directDependencies: [String: [String]] = [:]
+        var optionalDependencies: [String: [String]] = [:]
+        var buildDependencies: [String: [String]] = [:]
+        var declaredUsedBy: [String: [String]] = [:]
+        var reverseDependencies: [String: Set<String>] = [:]
 
-        for package in packages {
-            do {
-                let depInfo = try await fetchDependencies(for: package)
-                allDeps.append(depInfo)
-            } catch {
-                logger.warning("Failed to fetch dependencies for \(package): \(error.localizedDescription)")
-                // Continue with other packages
-                allDeps.append(.empty(packageName: package))
+        for formula in formulae {
+            let packageName = formula.name
+            let deps = formula.dependencies ?? []
+
+            directDependencies[packageName] = deps
+            optionalDependencies[packageName] = formula.optionalDependencies ?? []
+            buildDependencies[packageName] = formula.buildDependencies ?? []
+            declaredUsedBy[packageName] = formula.usedBy ?? []
+
+            for dependency in deps {
+                reverseDependencies[dependency, default: []].insert(packageName)
             }
         }
 
-        logger.info("Successfully fetched dependencies for \(allDeps.count) packages")
+        return directDependencies.keys.sorted().map { packageName in
+            let reverse = reverseDependencies[packageName] ?? []
+            let declared = Set(declaredUsedBy[packageName] ?? [])
+            let usedBy = Array(reverse.union(declared)).sorted()
 
-        return allDeps
+            return DependencyInfo(
+                id: packageName,
+                packageName: packageName,
+                dependencies: directDependencies[packageName] ?? [],
+                optionalDependencies: optionalDependencies[packageName] ?? [],
+                buildDependencies: buildDependencies[packageName] ?? [],
+                isUsedBy: usedBy
+            )
+        }
     }
 
     /// Get packages that depend on the specified package (reverse dependencies).
@@ -166,6 +198,7 @@ actor DependenciesClient {
             environment: environment,
             timeout: .seconds(30)
         )
+        try ensureNotCancelled(result)
 
         guard result.exitCode == 0 else {
             logger.error("Failed to fetch reverse dependencies for \(packageName): \(result.stderr)")

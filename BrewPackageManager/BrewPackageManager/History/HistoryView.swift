@@ -30,6 +30,9 @@ struct HistoryView: View {
     /// Whether to show clear confirmation dialog.
     @State private var showClearConfirmation = false
 
+    /// Active task for loading history entries.
+    @State private var loadTask: Task<Void, Never>?
+
     // MARK: - Body
 
     var body: some View {
@@ -130,10 +133,15 @@ struct HistoryView: View {
         .onAppear {
             // Only load if not already loading
             if !historyStore.isLoading {
-                Task {
+                loadTask?.cancel()
+                loadTask = Task {
                     await historyStore.loadHistory()
                 }
             }
+        }
+        .onDisappear {
+            loadTask?.cancel()
+            loadTask = nil
         }
         .alert("Clear History", isPresented: $showClearConfirmation) {
             Button("Cancel", role: .cancel) {}

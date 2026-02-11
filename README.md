@@ -16,6 +16,7 @@ A modern, native macOS menu bar application for managing Homebrew packages. Buil
 [Screenshots](#screenshots) •
 [Installation](#installation) •
 [Usage](#usage) •
+[Documentation](#documentation) •
 [Development](#development)
 
 </div>
@@ -194,7 +195,7 @@ cd BrewPackageManager
 ./create-dmg.sh
 ```
 
-The DMG will be created at `dmg/BrewPackageManager-1.0.0.dmg`.
+The DMG will be created at `dmg/BrewPackageManager-1.8.0.dmg`.
 
 > **Note**: This app requires App Sandbox to be disabled to execute Homebrew commands. The build script handles this automatically.
 
@@ -219,6 +220,8 @@ Click the menu bar icon to open the package manager interface.
 2. Or use "Select All Outdated" to select all at once
 3. Click "Update Selected" to begin the upgrade process
 4. Progress indicator shows current operation and completion status
+
+Pinned formulae are shown with a pin icon and skipped during bulk updates. To update one, run `brew unpin <name>` first.
 
 ### Exporting Package Data
 
@@ -291,6 +294,22 @@ Custom `AppError` enum captures common failure modes:
 - JSON decoding errors
 - Operation timeouts
 - User cancellation
+
+---
+
+## Documentation
+
+Full documentation for contributors and maintainers is available in the `docs/` folder:
+
+- [Docs Index](docs/README.md)
+- [App Overview](docs/APP_OVERVIEW.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Module Reference](docs/MODULE_REFERENCE.md)
+- [Runtime Workflows](docs/WORKFLOWS.md)
+- [Development Guide](docs/DEVELOPMENT_GUIDE.md)
+- [Testing Strategy](docs/TESTING_STRATEGY.md)
+- [Release Playbook](docs/RELEASE_PLAYBOOK.md)
+- [Community Developer Plan](docs/COMMUNITY_DEV_PLAN.md)
 
 ---
 

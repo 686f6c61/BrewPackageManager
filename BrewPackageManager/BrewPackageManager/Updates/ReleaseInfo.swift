@@ -15,7 +15,7 @@ import Foundation
 /// GitHub release information from the releases API.
 ///
 /// Decoded from: https://api.github.com/repos/{owner}/{repo}/releases/latest
-struct ReleaseInfo: Decodable, Sendable {
+nonisolated struct ReleaseInfo: Decodable, Sendable {
 
     // MARK: - Properties
 

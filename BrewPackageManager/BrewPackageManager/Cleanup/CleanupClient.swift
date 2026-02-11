@@ -38,6 +38,9 @@ actor CleanupClient {
         "HOMEBREW_NO_INSTALL_CLEANUP": "1"
     ]
 
+    /// Max bytes captured per stream for verbose mutating operations.
+    private let mutatingOutputCaptureLimitBytes = 1_048_576
+
     // MARK: - Initialization
 
     private func ensureBrewURL() async throws -> URL {
@@ -48,6 +51,12 @@ actor CleanupClient {
         let url = try await BrewLocator.locateBrew()
         brewURL = url
         return url
+    }
+
+    private func ensureNotCancelled(_ result: CommandResult) throws {
+        if result.wasCancelled {
+            throw AppError.cancelled
+        }
     }
 
     // MARK: - Public Methods
@@ -72,6 +81,16 @@ actor CleanupClient {
             environment: environment,
             timeout: .seconds(60)
         )
+        try ensureNotCancelled(result)
+
+        guard result.exitCode == 0 else {
+            logger.error("Failed to fetch cleanup info: \(result.stderr)")
+            throw AppError.shellCommandFailed(
+                command: "brew cleanup --dry-run -s",
+                exitCode: result.exitCode,
+                stderr: result.stderr
+            )
+        }
 
         let info = CleanupInfo.parseFromOutput(stdout: result.stdout)
 
@@ -96,6 +115,7 @@ actor CleanupClient {
             environment: environment,
             timeout: .seconds(10)
         )
+        try ensureNotCancelled(result)
 
         guard result.exitCode == 0 else {
             logger.error("Failed to get cache directory: \(result.stderr)")
@@ -112,8 +132,10 @@ actor CleanupClient {
         let duResult = try await CommandExecutor.run(
             path: "/usr/bin/du",
             arguments: ["-sk", cachePath],
-            timeout: .seconds(30)
+            timeout: .seconds(30),
+            captureLimitBytes: 16_384
         )
+        try ensureNotCancelled(duResult)
 
         guard duResult.exitCode == 0 else {
             logger.warning("Failed to calculate cache size, returning 0")
@@ -127,13 +149,26 @@ actor CleanupClient {
             return (0, 0)
         }
 
-        // Count files in cache
-        let lsResult = try await CommandExecutor.run(
-            path: "/usr/bin/find",
-            arguments: [cachePath, "-type", "f"],
-            timeout: .seconds(30)
+        // Count files without materializing every path in memory.
+        let countResult = try await CommandExecutor.run(
+            path: "/bin/sh",
+            arguments: [
+                "-c",
+                "/usr/bin/find \"$1\" -type f | /usr/bin/wc -l",
+                "brew-cache-count",
+                cachePath
+            ],
+            timeout: .seconds(30),
+            captureLimitBytes: 16_384
         )
-        let fileCount = lsResult.stdout.split(separator: "\n").count
+        try ensureNotCancelled(countResult)
+        guard countResult.exitCode == 0 else {
+            logger.warning("Failed to count cache files: \(countResult.stderr)")
+            return (sizeInt * 1024, 0)
+        }
+        let fileCount = Int(
+            countResult.stdout.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        ) ?? 0
 
         return (sizeInt * 1024, fileCount) // Convert KB to bytes
     }
@@ -158,8 +193,10 @@ actor CleanupClient {
             brewURL,
             arguments: args,
             environment: environment,
-            timeout: .seconds(120)
+            timeout: .seconds(120),
+            captureLimitBytes: mutatingOutputCaptureLimitBytes
         )
+        try ensureNotCancelled(result)
 
         guard result.exitCode == 0 else {
             logger.error("Failed to cleanup: \(result.stderr)")

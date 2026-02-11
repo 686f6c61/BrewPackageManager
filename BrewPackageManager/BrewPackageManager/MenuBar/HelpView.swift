@@ -49,7 +49,7 @@ struct HelpView: View {
                         Text("Brew Package Manager")
                             .font(.headline)
 
-                        Text("Version 1.7.0")
+                        Text("Version \(appVersion)")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
 
@@ -154,6 +154,10 @@ struct HelpView: View {
         }
         .frame(width: LayoutConstants.mainMenuWidth)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var appVersion: String {
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0.0.0"
     }
 }
 

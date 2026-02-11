@@ -70,6 +70,11 @@ final class ServicesStore {
             services = fetchedServices.sorted { $0.name < $1.name }
             logger.info("Successfully fetched \(fetchedServices.count) services")
         } catch let error as AppError {
+            if case .cancelled = error {
+                logger.debug("Services fetch cancelled")
+                isLoading = false
+                return
+            }
             logger.error("Failed to fetch services: \(error.localizedDescription)")
             lastError = error
         } catch {
@@ -94,15 +99,23 @@ final class ServicesStore {
         do {
             try await client.startService(service.name)
             logger.info("Service \(service.name) started successfully")
+            logHistory(operation: .serviceStart, packageName: service.name, success: true)
 
             // Refresh services list after operation
             await fetchServices()
         } catch let error as AppError {
+            if case .cancelled = error {
+                logger.debug("Start service cancelled: \(service.name)")
+                isOperating = false
+                return
+            }
             logger.error("Failed to start service \(service.name): \(error.localizedDescription)")
             lastError = error
+            logHistory(operation: .serviceStart, packageName: service.name, details: error.localizedDescription, success: false)
         } catch {
             logger.error("Unexpected error starting service \(service.name): \(error.localizedDescription)")
             lastError = AppError.unknown(error.localizedDescription)
+            logHistory(operation: .serviceStart, packageName: service.name, details: error.localizedDescription, success: false)
         }
 
         isOperating = false
@@ -122,15 +135,23 @@ final class ServicesStore {
         do {
             try await client.stopService(service.name)
             logger.info("Service \(service.name) stopped successfully")
+            logHistory(operation: .serviceStop, packageName: service.name, success: true)
 
             // Refresh services list after operation
             await fetchServices()
         } catch let error as AppError {
+            if case .cancelled = error {
+                logger.debug("Stop service cancelled: \(service.name)")
+                isOperating = false
+                return
+            }
             logger.error("Failed to stop service \(service.name): \(error.localizedDescription)")
             lastError = error
+            logHistory(operation: .serviceStop, packageName: service.name, details: error.localizedDescription, success: false)
         } catch {
             logger.error("Unexpected error stopping service \(service.name): \(error.localizedDescription)")
             lastError = AppError.unknown(error.localizedDescription)
+            logHistory(operation: .serviceStop, packageName: service.name, details: error.localizedDescription, success: false)
         }
 
         isOperating = false
@@ -150,17 +171,41 @@ final class ServicesStore {
         do {
             try await client.restartService(service.name)
             logger.info("Service \(service.name) restarted successfully")
+            logHistory(operation: .serviceRestart, packageName: service.name, success: true)
 
             // Refresh services list after operation
             await fetchServices()
         } catch let error as AppError {
+            if case .cancelled = error {
+                logger.debug("Restart service cancelled: \(service.name)")
+                isOperating = false
+                return
+            }
             logger.error("Failed to restart service \(service.name): \(error.localizedDescription)")
             lastError = error
+            logHistory(operation: .serviceRestart, packageName: service.name, details: error.localizedDescription, success: false)
         } catch {
             logger.error("Unexpected error restarting service \(service.name): \(error.localizedDescription)")
             lastError = AppError.unknown(error.localizedDescription)
+            logHistory(operation: .serviceRestart, packageName: service.name, details: error.localizedDescription, success: false)
         }
 
         isOperating = false
+    }
+
+    private func logHistory(
+        operation: HistoryEntry.OperationType,
+        packageName: String,
+        details: String? = nil,
+        success: Bool = true
+    ) {
+        Task {
+            await HistoryStore.logOperation(
+                operation: operation,
+                packageName: packageName,
+                details: details,
+                success: success
+            )
+        }
     }
 }

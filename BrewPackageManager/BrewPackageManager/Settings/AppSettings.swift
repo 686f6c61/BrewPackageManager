@@ -131,16 +131,15 @@ final class AppSettings {
         self.defaults = defaults
 
         debugMode = defaults.bool(forKey: Keys.debugMode)
-        autoRefreshInterval = defaults.integer(forKey: Keys.autoRefreshInterval)
+        if defaults.object(forKey: Keys.autoRefreshInterval) == nil {
+            autoRefreshInterval = 300 // 5 minutes default for first launch
+        } else {
+            autoRefreshInterval = defaults.integer(forKey: Keys.autoRefreshInterval)
+        }
         onlyShowOutdated = defaults.bool(forKey: Keys.onlyShowOutdated)
         checkForUpdatesEnabled = defaults.bool(forKey: Keys.checkForUpdatesEnabled)
         lastUpdateCheck = defaults.object(forKey: Keys.lastUpdateCheck) as? Date
         skippedVersion = defaults.string(forKey: Keys.skippedVersion)
-
-        // Set default interval if not previously set
-        if autoRefreshInterval == 0 {
-            autoRefreshInterval = 300  // 5 minutes default
-        }
 
         // Enable updates by default
         if !defaults.bool(forKey: "hasSetUpdateCheckDefault") {

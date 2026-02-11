@@ -137,12 +137,26 @@ struct MainMenuContentView: View {
 
                 Spacer()
 
-                Text("v1.7.0")
+                Text("v\(appVersion)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .padding(.trailing, 12)
             }
         }
         .frame(width: LayoutConstants.mainMenuWidth)
+        .alert("Warning", isPresented: Binding(
+            get: { store.nonFatalError != nil },
+            set: { if !$0 { store.dismissError() } }
+        )) {
+            Button("OK") { store.dismissError() }
+        } message: {
+            if let error = store.nonFatalError {
+                Text(error.localizedDescription)
+            }
+        }
+    }
+
+    private var appVersion: String {
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0.0.0"
     }
 }

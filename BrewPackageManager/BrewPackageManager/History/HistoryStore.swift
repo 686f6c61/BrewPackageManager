@@ -39,6 +39,9 @@ final class HistoryStore {
     /// History database for persistence.
     private let database = HistoryDatabase()
 
+    /// Shared database used by static logging calls.
+    private static let sharedDatabase = HistoryDatabase()
+
     // MARK: - Computed Properties
 
     /// Filtered entries based on selected filter.
@@ -142,9 +145,6 @@ final class HistoryStore {
             success: success
         )
 
-        // This would need to be called from a HistoryStore instance
-        // For now, we'll just create the entry
-        let database = HistoryDatabase()
-        await database.addEntry(entry)
+        await sharedDatabase.addEntry(entry)
     }
 }
