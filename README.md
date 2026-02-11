@@ -36,6 +36,9 @@ A modern, native macOS menu bar application for managing Homebrew packages. Buil
 ### Package Updates
 <img src="assets/screenshot-updates.png" alt="Package Updates" width="600"/>
 
+### Services Management
+<img src="assets/screenshot-services.png" alt="Services" width="600"/>
+
 ### Settings Panel
 <img src="assets/screenshot-settings.png" alt="Settings" width="600"/>
 
