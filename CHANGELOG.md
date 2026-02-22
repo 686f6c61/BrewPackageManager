@@ -5,6 +5,19 @@ All notable changes to BrewPackageManager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-02-22
+
+### Fixed
+
+- Fixed Homebrew outdated JSON parsing for casks when `installed_versions` is returned as an array (Homebrew 5.x format).
+- Fixed compatibility with legacy/outlier Homebrew JSON where cask `installed_versions` may be a string.
+- Added regression tests covering both JSON shapes to prevent parse failures in the menu.
+
+### Changed
+
+- Updated app version to `1.8.1`.
+- Updated release/build docs and scripts to reference `1.8.1` artifacts.
+
 ## [1.8.0] - 2026-02-10
 
 ### Fixed
@@ -386,6 +399,7 @@ The package management logic, state management, CSV export functionality, and UI
 
 MIT License - Copyright (c) 2026
 
+[1.8.1]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.8.1
 [1.8.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.8.0
 [1.7.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.7.0
 [1.6.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.6.0

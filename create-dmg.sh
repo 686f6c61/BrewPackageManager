@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="BrewPackageManager"
-VERSION="1.8.0"
+VERSION="1.8.1"
 DMG_NAME="${APP_NAME}-${VERSION}"
 BUILD_CONFIGURATION="Release"
 

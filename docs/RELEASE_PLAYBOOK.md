@@ -59,12 +59,12 @@ DMG build:
 2. Create tag:
 
 ```bash
-git tag v1.8.0
+git tag v1.8.1
 git push origin main --tags
 ```
 
 3. Create GitHub release:
-  - Title: `v1.8.0`
+  - Title: `v1.8.1`
   - Body from changelog.
   - Attach DMG from `dmg/`.
 

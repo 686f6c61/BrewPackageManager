@@ -284,6 +284,48 @@ struct BrewPackageManagerTests {
         #expect(upgradeCallCount == 0)
     }
 
+    @Test("Outdated cask decoding supports array installed_versions")
+    func outdatedCaskDecodesInstalledVersionsArray() throws {
+        let json = """
+        {
+          "formulae": [],
+          "casks": [
+            {
+              "name": "codex",
+              "installed_versions": ["0.101.0"],
+              "current_version": "0.104.0"
+            }
+          ]
+        }
+        """
+
+        let response = try BrewOutdatedResponse.decode(from: json)
+        #expect(response.casks.count == 1)
+        #expect(response.casks[0].installedVersions == ["0.101.0"])
+        #expect(response.casks[0].currentVersion == "0.104.0")
+    }
+
+    @Test("Outdated cask decoding supports legacy string installed_versions")
+    func outdatedCaskDecodesInstalledVersionsString() throws {
+        let json = """
+        {
+          "formulae": [],
+          "casks": [
+            {
+              "name": "legacy-cask",
+              "installed_versions": "1.2.3",
+              "current_version": ["1.2.4"]
+            }
+          ]
+        }
+        """
+
+        let response = try BrewOutdatedResponse.decode(from: json)
+        #expect(response.casks.count == 1)
+        #expect(response.casks[0].installedVersions == ["1.2.3"])
+        #expect(response.casks[0].currentVersion == "1.2.4")
+    }
+
 }
 
 actor MockUpgradeFailingClient: BrewPackagesClientProtocol {

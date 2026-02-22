@@ -194,8 +194,11 @@ nonisolated struct BrewOutdatedResponse: Codable, Sendable {
         /// The cask identifier token.
         let token: String?
 
-        /// The currently installed version.
-        let installedVersions: String?
+        /// The currently installed version(s).
+        ///
+        /// Homebrew may return this as either a string or an array, depending
+        /// on Homebrew version. We normalize both shapes to arrays.
+        let installedVersions: [String]
 
         /// The latest available version.
         let currentVersion: String?
@@ -204,6 +207,28 @@ nonisolated struct BrewOutdatedResponse: Codable, Sendable {
             case name, token
             case installedVersions = "installed_versions"
             case currentVersion = "current_version"
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.name = try container.decode(String.self, forKey: .name)
+            self.token = try container.decodeIfPresent(String.self, forKey: .token)
+
+            if let installedVersions = try? container.decodeIfPresent([String].self, forKey: .installedVersions) {
+                self.installedVersions = installedVersions
+            } else if let installedVersion = try? container.decodeIfPresent(String.self, forKey: .installedVersions) {
+                self.installedVersions = [installedVersion]
+            } else {
+                self.installedVersions = []
+            }
+
+            if let currentVersion = try? container.decodeIfPresent(String.self, forKey: .currentVersion) {
+                self.currentVersion = currentVersion
+            } else if let currentVersions = try? container.decodeIfPresent([String].self, forKey: .currentVersion) {
+                self.currentVersion = currentVersions.first
+            } else {
+                self.currentVersion = nil
+            }
         }
     }
 }

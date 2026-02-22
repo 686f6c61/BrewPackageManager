@@ -59,7 +59,7 @@ Create a release DMG:
 
 Output:
 
-- `dmg/BrewPackageManager-1.8.0.dmg`
+- `dmg/BrewPackageManager-1.8.1.dmg`
 
 ## Coding Expectations
 

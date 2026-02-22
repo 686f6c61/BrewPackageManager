@@ -198,7 +198,7 @@ cd BrewPackageManager
 ./create-dmg.sh
 ```
 
-The DMG will be created at `dmg/BrewPackageManager-1.8.0.dmg`.
+The DMG will be created at `dmg/BrewPackageManager-1.8.1.dmg`.
 
 > **Note**: This app requires App Sandbox to be disabled to execute Homebrew commands. The build script handles this automatically.
 
