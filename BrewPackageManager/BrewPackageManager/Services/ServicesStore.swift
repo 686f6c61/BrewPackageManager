@@ -22,6 +22,24 @@ import Observation
 @Observable
 final class ServicesStore {
 
+    enum ServiceAction: String, Sendable {
+        case refresh
+        case start
+        case stop
+        case restart
+
+        var displayName: String {
+            rawValue.capitalized
+        }
+    }
+
+    enum ServiceOperationState {
+        case idle
+        case running(ServiceAction)
+        case succeeded(ServiceAction, message: String)
+        case failed(ServiceAction, AppError)
+    }
+
     // MARK: - Properties
 
     /// All available Homebrew services.
@@ -30,8 +48,11 @@ final class ServicesStore {
     /// Whether the store is currently loading services.
     var isLoading = false
 
-    /// Whether a service operation is in progress.
-    var isOperating = false
+    /// Current per-service operation states.
+    var serviceOperations: [String: ServiceOperationState] = [:]
+
+    /// Status message from the most recent refresh or mutation.
+    var statusMessage: String?
 
     /// The last error that occurred.
     var lastError: AppError?
@@ -54,20 +75,44 @@ final class ServicesStore {
         services.filter { $0.status == .stopped }.count
     }
 
+    /// Whether a refresh is already in progress.
+    var isRefreshing: Bool {
+        isLoading
+    }
+
+    /// Returns the current operation state for a service.
+    func operationState(for serviceID: String) -> ServiceOperationState {
+        serviceOperations[serviceID] ?? .idle
+    }
+
+    /// Whether a specific service is currently performing an operation.
+    func isOperating(_ serviceID: String) -> Bool {
+        if case .running = operationState(for: serviceID) {
+            return true
+        }
+        return false
+    }
+
     // MARK: - Public Methods
 
     /// Fetch all services from Homebrew.
-    func fetchServices() async {
+    func fetchServices(showStatusMessage: Bool = false) async {
         guard !isLoading else { return }
 
         isLoading = true
         lastError = nil
+        if showStatusMessage {
+            statusMessage = "Refreshing services..."
+        }
 
         logger.info("Fetching services")
 
         do {
             let fetchedServices = try await client.fetchServices()
             services = fetchedServices.sorted { $0.name < $1.name }
+            if showStatusMessage {
+                statusMessage = "Loaded \(fetchedServices.count) services."
+            }
             logger.info("Successfully fetched \(fetchedServices.count) services")
         } catch let error as AppError {
             if case .cancelled = error {
@@ -77,9 +122,11 @@ final class ServicesStore {
             }
             logger.error("Failed to fetch services: \(error.localizedDescription)")
             lastError = error
+            statusMessage = nil
         } catch {
             logger.error("Unexpected error fetching services: \(error.localizedDescription)")
             lastError = AppError.unknown(error.localizedDescription)
+            statusMessage = nil
         }
 
         isLoading = false
@@ -89,16 +136,18 @@ final class ServicesStore {
     ///
     /// - Parameter service: The service to start.
     func startService(_ service: BrewService) async {
-        guard !isOperating else { return }
+        guard !isOperating(service.id) else { return }
 
-        isOperating = true
         lastError = nil
+        serviceOperations[service.id] = .running(.start)
 
         logger.info("Starting service: \(service.name)")
 
         do {
             try await client.startService(service.name)
             logger.info("Service \(service.name) started successfully")
+            serviceOperations[service.id] = .succeeded(.start, message: "Started \(service.name).")
+            statusMessage = "Started \(service.name)."
             logHistory(operation: .serviceStart, packageName: service.name, success: true)
 
             // Refresh services list after operation
@@ -106,35 +155,40 @@ final class ServicesStore {
         } catch let error as AppError {
             if case .cancelled = error {
                 logger.debug("Start service cancelled: \(service.name)")
-                isOperating = false
+                serviceOperations[service.id] = .idle
                 return
             }
             logger.error("Failed to start service \(service.name): \(error.localizedDescription)")
             lastError = error
+            serviceOperations[service.id] = .failed(.start, error)
+            statusMessage = nil
             logHistory(operation: .serviceStart, packageName: service.name, details: error.localizedDescription, success: false)
         } catch {
             logger.error("Unexpected error starting service \(service.name): \(error.localizedDescription)")
-            lastError = AppError.unknown(error.localizedDescription)
+            let appError = AppError.unknown(error.localizedDescription)
+            lastError = appError
+            serviceOperations[service.id] = .failed(.start, appError)
+            statusMessage = nil
             logHistory(operation: .serviceStart, packageName: service.name, details: error.localizedDescription, success: false)
         }
-
-        isOperating = false
     }
 
     /// Stop a service.
     ///
     /// - Parameter service: The service to stop.
     func stopService(_ service: BrewService) async {
-        guard !isOperating else { return }
+        guard !isOperating(service.id) else { return }
 
-        isOperating = true
         lastError = nil
+        serviceOperations[service.id] = .running(.stop)
 
         logger.info("Stopping service: \(service.name)")
 
         do {
             try await client.stopService(service.name)
             logger.info("Service \(service.name) stopped successfully")
+            serviceOperations[service.id] = .succeeded(.stop, message: "Stopped \(service.name).")
+            statusMessage = "Stopped \(service.name)."
             logHistory(operation: .serviceStop, packageName: service.name, success: true)
 
             // Refresh services list after operation
@@ -142,35 +196,40 @@ final class ServicesStore {
         } catch let error as AppError {
             if case .cancelled = error {
                 logger.debug("Stop service cancelled: \(service.name)")
-                isOperating = false
+                serviceOperations[service.id] = .idle
                 return
             }
             logger.error("Failed to stop service \(service.name): \(error.localizedDescription)")
             lastError = error
+            serviceOperations[service.id] = .failed(.stop, error)
+            statusMessage = nil
             logHistory(operation: .serviceStop, packageName: service.name, details: error.localizedDescription, success: false)
         } catch {
             logger.error("Unexpected error stopping service \(service.name): \(error.localizedDescription)")
-            lastError = AppError.unknown(error.localizedDescription)
+            let appError = AppError.unknown(error.localizedDescription)
+            lastError = appError
+            serviceOperations[service.id] = .failed(.stop, appError)
+            statusMessage = nil
             logHistory(operation: .serviceStop, packageName: service.name, details: error.localizedDescription, success: false)
         }
-
-        isOperating = false
     }
 
     /// Restart a service.
     ///
     /// - Parameter service: The service to restart.
     func restartService(_ service: BrewService) async {
-        guard !isOperating else { return }
+        guard !isOperating(service.id) else { return }
 
-        isOperating = true
         lastError = nil
+        serviceOperations[service.id] = .running(.restart)
 
         logger.info("Restarting service: \(service.name)")
 
         do {
             try await client.restartService(service.name)
             logger.info("Service \(service.name) restarted successfully")
+            serviceOperations[service.id] = .succeeded(.restart, message: "Restarted \(service.name).")
+            statusMessage = "Restarted \(service.name)."
             logHistory(operation: .serviceRestart, packageName: service.name, success: true)
 
             // Refresh services list after operation
@@ -178,19 +237,22 @@ final class ServicesStore {
         } catch let error as AppError {
             if case .cancelled = error {
                 logger.debug("Restart service cancelled: \(service.name)")
-                isOperating = false
+                serviceOperations[service.id] = .idle
                 return
             }
             logger.error("Failed to restart service \(service.name): \(error.localizedDescription)")
             lastError = error
+            serviceOperations[service.id] = .failed(.restart, error)
+            statusMessage = nil
             logHistory(operation: .serviceRestart, packageName: service.name, details: error.localizedDescription, success: false)
         } catch {
             logger.error("Unexpected error restarting service \(service.name): \(error.localizedDescription)")
-            lastError = AppError.unknown(error.localizedDescription)
+            let appError = AppError.unknown(error.localizedDescription)
+            lastError = appError
+            serviceOperations[service.id] = .failed(.restart, appError)
+            statusMessage = nil
             logHistory(operation: .serviceRestart, packageName: service.name, details: error.localizedDescription, success: false)
         }
-
-        isOperating = false
     }
 
     private func logHistory(

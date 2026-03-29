@@ -4,13 +4,15 @@
 
 # BrewPackageManager
 
-### Native macOS Menu Bar App for Homebrew Package Management
+### Native macOS Menu Bar App for Homebrew, rebuilt for 2.0
 
 [![macOS](https://img.shields.io/badge/macOS-15.0+-blue.svg)](https://www.apple.com/macos/)
-[![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)](https://swift.org)
+[![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A modern, native macOS menu bar application for managing Homebrew packages. Built with Swift and SwiftUI for macOS 15.0+.
+BrewPackageManager is a native macOS menu bar companion for Homebrew that turns package maintenance, search, cleanup, diagnostics, and service management into a fast, readable desktop workflow instead of a collection of terminal commands.
+
+The 2.0 line rebuilds the experience around a cleaner operational shell, clearer state feedback, and direct access to the actions people actually repeat: checking what needs attention, updating visible packages, installing something new, inspecting dependencies, and troubleshooting command results without losing context.
 
 [Features](#features) •
 [Screenshots](#screenshots) •
@@ -27,17 +29,29 @@ A modern, native macOS menu bar application for managing Homebrew packages. Buil
 
 <div align="center">
 
-### Main Interface
-<img src="assets/screenshot-main.png" alt="Main Interface" width="600"/>
+### Overview
+<img src="assets/screenshot-overview.png" alt="Overview" width="600"/>
+
+### Main Flow
+<img src="assets/screenshot-main.png" alt="Main Flow" width="600"/>
 
 ### Package Search
 <img src="assets/screenshot-search.png" alt="Package Search" width="600"/>
 
-### Package Updates
-<img src="assets/screenshot-updates.png" alt="Package Updates" width="600"/>
+### Tools
+<img src="assets/screenshot-tools.png" alt="Tools" width="600"/>
 
 ### Services Management
 <img src="assets/screenshot-services.png" alt="Services" width="600"/>
+
+### Dependencies
+<img src="assets/screenshot-dependencies.png" alt="Dependencies" width="600"/>
+
+### Package Detail
+<img src="assets/screenshot-package-detail.png" alt="Package Detail" width="600"/>
+
+### Statistics
+<img src="assets/screenshot-statistics.png" alt="Statistics" width="600"/>
 
 ### Settings Panel
 <img src="assets/screenshot-settings.png" alt="Settings" width="600"/>
@@ -48,133 +62,104 @@ A modern, native macOS menu bar application for managing Homebrew packages. Buil
 
 ## Features
 
-### Package Search & Installation
+### 2.0 Shell
 
-Discover and install new Homebrew packages directly from the menu bar application without using the terminal.
+The 2.0 line replaces the old menu layout with a new operational shell focused on four primary areas:
 
-- **Package Search**: Search for available Homebrew packages (both formulae and casks)
-- **Type Filtering**: Filter results by package type (All, Formulae only, or Casks only)
-- **Quick Installation**: Install packages with a single click and confirmation dialog
-- **Installation Progress**: Real-time progress indicators showing installation status
-- **Package Details**: View package descriptions and metadata before installing
-- **Smart Results**: First 15 results displayed with hints for refining search
+Instead of mixing every feature into one overloaded popover, the shell groups the app around a few stable mental models. The goal is simple: the main view should help you decide what matters now, while the deeper tools stay easy to reach without polluting the core flow.
 
-### Launch at Login
+- **Overview**: actionable updates, installed inventory snapshot, hidden items count, and fast-entry actions
+- **Search**: live package search with filters and direct install/detail actions
+- **Tools**: services, cleanup, dependencies, history, statistics, hidden items, and help in one deliberate place
+- **Settings**: core runtime toggles, refresh interval, debug mode, and app update checks
 
-Optionally configure the app to launch automatically when you log in to macOS.
-
-- **System Integration**: Uses native macOS login items via ServiceManagement framework
-- **Easy Toggle**: Enable/disable from Settings → General section
-- **Persistent Setting**: Choice is remembered and managed by the system
-
-### Automatic Updates
-
-Stay up to date with the latest features and improvements.
-
-- **GitHub Integration**: Automatically checks for new releases from the official repository
-- **Smart Timing**: Checks once per 24 hours to avoid excessive network requests
-- **Update Notifications**: Alert dialog shows version details and release notes
-- **User Control**:
-  - Toggle automatic checking on/off
-  - Manual "Check Now" button
-  - Skip specific versions permanently
-  - Postpone updates with "Remind Me Later"
-- **Privacy Friendly**: Only connects to GitHub API, no analytics or tracking
-
-### Services Manager
-
-Control Homebrew services directly from the menu bar.
-
-- **Service Control**: Start, stop, and restart Homebrew services
-- **Real-time Status**: Live status indicators (Running, Stopped, Error)
-- **Service Information**: View PID, user, and plist path for each service
-- **Summary Statistics**: Running vs stopped services count
-- **Thread-safe Operations**: Actor-based architecture prevents race conditions
-
-### Cleanup & Cache Management
-
-Optimize disk space by managing Homebrew's cache and old versions.
-
-- **Cache Analysis**: View cache size and file count
-- **Old Versions Detection**: Identify outdated formula versions
-- **Two Cleanup Modes**:
-  - Clean old versions only
-  - Clear entire download cache with `--prune=all`
-- **Smart Recommendations**: Alerts when cache exceeds 500 MB or >5 old versions
-- **Size Reporting**: Shows freed disk space after cleanup
-
-### Dependencies Management
-
-Visualize and understand package dependencies.
-
-- **Dependency Viewer**: See all dependencies for installed packages
-- **Search Filter**: Quick package lookup
-- **Dependency Types**:
-  - Direct dependencies
-  - Optional dependencies
-  - Build-only dependencies
-  - Reverse dependencies (what uses this package)
-- **Summary Statistics**: Total packages and dependencies count
-- **Visual Indicators**: Color-coded status for independent and required packages
-
-### History & Statistics
-
-Track your Homebrew usage and operations over time.
-
-- **Operation History**:
-  - Persistent log of all operations (install, upgrade, uninstall, services, cleanup)
-  - Chronological display with relative timestamps
-  - Filter by operation type
-  - Success/failure indicators
-  - Stores up to 1000 most recent entries
-
-- **Usage Statistics**:
-  - Total operations count and success rate
-  - Operations breakdown by type with visual bars
-  - Most installed packages (top 10)
-  - Most upgraded packages (top 10)
-  - Interactive statistics cards
+Each of those areas is meant to answer a different question. `Overview` is for action, `Search` is for discovery, `Tools` is for deeper management work, and `Settings` is for changing how the app behaves over time.
 
 ### Package Management
 
-The core functionality revolves around providing visibility into your Homebrew installation. The app automatically detects both formulae (command-line tools) and casks (GUI applications) installed on your system.
+Package management is still the center of the app, but 2.0 makes a stronger distinction between what is installed, what is outdated, and what is actually actionable. That matters because Homebrew setups often contain pinned packages, hidden updates, or items you want to keep around without turning them into constant visual noise.
 
-- **Installed Package Listing**: View all packages installed via Homebrew with detailed version information
-- **Update Detection**: Continuously monitors for outdated packages with visual indicators
-- **Bulk Update Operations**: Select multiple packages using checkboxes and update them in a single operation
-- **Package Information**: View detailed information including description, homepage, license, and release notes
-- **Uninstall Packages**: Right-click context menu for easy package removal
+- **Installed Package Visibility**: installed Homebrew packages with version and update state
+- **Visible Update Count**: pinned and hidden updates are excluded from the main action count
+- **Bulk Update Action**: update all visible packages from the overview flow
+- **Package Details**: inspect metadata, versions, homepage, and release links
+- **Pinned Guidance**: pinned formulae stay visible as state, but are not treated as actionable updates
+- **Hidden Items**: hide noisy packages or updates and restore them later
 
-### Export Functionality
+In practice, this means the UI tries to stay honest. If something cannot be updated because it is pinned, the app should treat that as context, not as a broken action. If something is intentionally hidden, it should disappear from the main flow but still remain recoverable.
 
-Export your complete Homebrew inventory to CSV format for documentation, auditing, or backup purposes.
+### Search and Install
 
-The exported CSV file contains:
-- Name and full package name
-- Type (formula or cask)
-- Version information (installed vs current)
-- Outdated status
-- Tap source
-- Description and homepage
+Search is designed for quick package discovery without leaving the menu bar flow. Instead of a one-shot input that forces an extra confirmation step, the search experience reacts while you type and keeps install and detail actions close to the result itself.
 
-### Auto-Refresh
+- **Live Search**: search runs as you type
+- **Type Filters**: All, Formulae, or Casks
+- **Direct Install**: install packages from search results
+- **Details Flow**: open package details without losing the surrounding navigation context
 
-Configurable auto-refresh keeps package information current without manual intervention. Set a custom interval in seconds, and the app will automatically query Homebrew for updates.
+This makes the screen useful both for fast installs and for cautious inspection. You can scan the result set, narrow by package type, open a package first, and only then install if it looks right.
 
-### Display Options
+### Services
 
-- **Filter Mode**: Show only outdated packages to reduce visual clutter
-- **Debug Mode**: Enable verbose logging for troubleshooting
-- **Dark Mode Support**: Fully integrated with macOS appearance settings
+Homebrew services are one of the places where a GUI can save real time, especially when you are juggling local databases, queues, or background daemons. The app tries to surface the status of each service clearly enough that you can understand what is running before you touch anything.
+
+- **Service Control**: start, stop, and restart Homebrew services
+- **Status Summary**: running and stopped counts at the top of the screen
+- **Row-Level Feedback**: each service shows only valid actions for its current state
+- **Metadata Visibility**: service status, PID, and summary data stay readable in one card
+
+The important part is not only that the action exists, but that the result is legible. A service screen should tell you whether something is running, who owns it, and what action makes sense next, instead of forcing you to infer that from raw command output.
+
+### Cleanup and Cache
+
+Cleanup is intentionally split because Homebrew cleanup work is not all the same. Clearing the download cache, removing old package versions, and uninstalling packages are different actions with different consequences, and the UI should not blur them together.
+
+- **Separated Actions**: cache clearing and old-version cleanup are explicitly different flows
+- **Immediate Cache Clear**: clearing download cache does not ask for confirmation first
+- **Old Versions Cleanup**: destructive package-version cleanup still requires confirmation
+- **Result Messaging**: cleanup feedback explains what was cleared and what remains
+
+That separation is there to reduce anxiety and avoid false expectations. If you clear cache, the app should say exactly that. If old versions remain, the app should say that too instead of making the user guess whether the action failed.
+
+### History and Diagnostics
+
+When Homebrew behaves unexpectedly, the problem is rarely just “something failed.” Usually you need context: what command ran, whether it timed out, whether it was cancelled, what happened previously, and whether the app still has a sane internal state. This part of the app is there to make that debugging path much shorter.
+
+- **Persistent History**: operations are recorded for later inspection
+- **Statistics View**: high-level counts and success-rate summary
+- **Command Diagnostics**: debug mode keeps command output and metadata easier to reason about
+- **GitHub Release Checks**: manual and automatic app update checks against releases
+
+This is especially useful when a workflow breaks after a Homebrew update. Instead of jumping immediately into guesswork, you can inspect what the app saw, what it tried to do, and where the failure surfaced.
+
+---
+
+## Terminology
+
+Homebrew uses two package families:
+
+Those names come directly from Homebrew itself, so they appear in command output, JSON payloads, and the app UI. If you do not work with Homebrew terminology every day, it helps to map them to more familiar product language.
+
+- **Formulae**: CLI tools, libraries, and developer packages such as `tree`, `wget`, or `python`
+- **Casks**: macOS apps and app-like binaries such as `visual-studio-code`, `google-chrome`, or `slack`
+
+If you prefer user-facing wording, think of them as:
+
+- **CLI Tools** = Formulae
+- **Mac Apps** = Casks
 
 ---
 
 ## Requirements
 
+The app targets a modern macOS setup and expects a standard Homebrew installation. It is intentionally opinionated here because predictable paths and a current toolchain make both runtime behavior and contributor support much more reliable.
+
 - macOS 15.0 or later
-- Homebrew installed at standard paths:
+- Homebrew installed at one of the standard paths:
   - `/opt/homebrew/bin/brew` (Apple Silicon)
   - `/usr/local/bin/brew` (Intel)
+- Xcode 26+ if you want to build from source with the same Swift 6.3 toolchain used in the current audit
+- Docker 29+ if you want to run the external audit lane locally
 
 ---
 
@@ -184,13 +169,13 @@ Configurable auto-refresh keeps package information current without manual inter
 
 Download the latest release DMG from the [releases page](https://github.com/686f6c61/BrewPackageManager/releases).
 
+This is the simplest path if you only want to install and use the app. The DMG is meant to behave like a normal macOS distribution: drag, drop, open, and start using the menu bar extra.
+
 1. Open the DMG file
 2. Drag **BrewPackageManager.app** to the Applications folder
 3. Launch from Applications
 
 ### Build from Source
-
-Requires Xcode 16.0+ with Swift 6 support:
 
 ```bash
 git clone https://github.com/686f6c61/BrewPackageManager.git
@@ -198,58 +183,66 @@ cd BrewPackageManager
 ./create-dmg.sh
 ```
 
-The DMG will be created at `dmg/BrewPackageManager-1.8.1.dmg`.
+The DMG will be created at `dmg/BrewPackageManager-2.0.0.dmg`.
 
-> **Note**: This app requires App Sandbox to be disabled to execute Homebrew commands. The build script handles this automatically.
+Building from source is the better route if you want to inspect the code, test the new shell, or iterate on the app locally before packaging a release.
+
+> App Sandbox must be disabled for local builds and releases because the app needs to execute `brew` commands directly.
 
 ---
 
 ## Usage
 
-### Basic Operations
+### Open the App
 
-After launching, the app icon appears in your menu bar. The icon changes to reflect the current state:
+- Left-click the menu bar icon to open the main popover
+- Right-click the menu bar icon for quick actions such as refresh, app update check, opening the management window, or quit
 
-- Cube icon: Normal state, all packages up to date
-- Cube with badge: Updates available
-- Rotating arrows: Refresh in progress
-- Arrow up circle: Update operation running
+The app is built around the menu bar first. Left click is the normal working surface, while right click is for quick utility actions when you do not need the full UI.
 
-Click the menu bar icon to open the package manager interface.
+### Update Packages
 
-### Updating Packages
+- Open **Overview**
+- Review the visible update count
+- Use **Update all visible** when the overview shows actionable packages
+- Pinned or hidden updates are intentionally excluded from that action
 
-1. Click checkboxes next to outdated packages to select them
-2. Or use "Select All Outdated" to select all at once
-3. Click "Update Selected" to begin the upgrade process
-4. Progress indicator shows current operation and completion status
+This keeps the bulk update path deliberate. You get a quick answer to “what should I deal with now?” without mixing in pinned packages or intentionally hidden items that would only create friction.
 
-Pinned formulae are shown with a pin icon and skipped during bulk updates. To update one, run `brew unpin <name>` first.
+### Search and Install
 
-### Exporting Package Data
+- Open **Search**
+- Type a package name such as `tree`, `python`, or `mongodb`
+- Use filters if you want only formulae or only casks
+- Install directly from the result card or open package details first
 
-1. Navigate to **Settings** from the main menu
-2. Click **Export to CSV**
-3. Choose save location (default: `homebrew-packages.csv`)
+This flow is designed for both speed and caution. If you already know what you want, install is close at hand. If not, the package detail screen gives you enough context to inspect before making a change.
 
-### Configuring Auto-Refresh
+### Use the Tool Screens
 
-1. Open **Settings**
-2. Adjust "Refresh interval" in seconds
-3. Set to 0 to disable auto-refresh
-4. Minimum effective interval is 10 seconds
+Open **Tools** for the deeper management surfaces:
 
-### Viewing Package Details
+- **Services**
+- **Cleanup**
+- **Dependencies**
+- **Activity**
+- **Statistics**
+- **Hidden Items**
+- **Help**
 
-Click the info button next to any package to view:
-- Package description and metadata
-- Installed and available versions
-- License information
-- Links to homepage, release notes, and GitHub repository
+This section is where the app keeps the heavier operational screens. The intent is to keep the main overview clean while still making advanced workflows available in one obvious place.
 
-### Uninstalling Packages
+### Settings
 
-Right-click on any package and select **Uninstall** from the context menu.
+Open **Settings** to manage:
+
+- Launch at login
+- Automatic app update checks
+- Show only outdated packages
+- Debug mode
+- Auto-refresh interval
+
+These settings are about runtime behavior, not decoration. They exist to help you decide how noisy, automatic, or verbose the app should be for your own Homebrew workflow.
 
 ---
 
@@ -257,52 +250,45 @@ Right-click on any package and select **Uninstall** from the context menu.
 
 ### Technology Stack
 
-- **Swift 6**: Modern Swift with strict concurrency
-- **SwiftUI**: Declarative UI framework
-- **Observation**: State management with @Observable macro
-- **AppKit**: Native macOS integration
-- **OSLog**: Structured logging
+- **Swift 6.3**
+- **SwiftUI**
+- **Observation**
+- **AppKit**
+- **OSLog**
+
+The stack is intentionally native. This app fits best as a lightweight macOS utility, so the architecture leans on SwiftUI for screen composition, AppKit for menu bar and window integration, and native concurrency/observation patterns for state flow.
 
 ### Project Structure
 
-```
+```text
 BrewPackageManager/
 ├── Brew/              # Homebrew interaction & JSON parsing
 ├── Shell/             # Command execution infrastructure
 ├── Packages/          # State management & business logic
-├── MenuBar/           # SwiftUI views & navigation
-├── Settings/          # User preferences management
-├── Updates/           # GitHub updates integration
+├── MenuBar/           # Status item, window/popover controller, and 2.0 shell
+│   └── Reboot/        # Active 2.0 UI shell and screens
+├── Settings/          # User settings persistence
+├── Updates/           # GitHub release checks
 ├── Services/          # Homebrew services management
 ├── Cleanup/           # Cache & cleanup operations
 ├── Dependencies/      # Dependency analysis
 ├── History/           # Operation history & statistics
-├── Design/            # Reusable UI components & modifiers
-├── Components/        # Generic UI elements
-└── Utilities/         # Helper functions & bridges
+└── Utilities/         # Helper functions & AppKit bridges
 ```
 
-### Concurrency Model
+### Current Audit Reality
 
-- **BrewPackagesClient**: Actor ensuring serial Homebrew operations
-- **PackagesStore**: @MainActor for UI updates on main thread
-- Asynchronous pipe reading prevents deadlocks with large outputs
-- Background tasks with utility priority for cache operations
+The legacy pre-2.0 SwiftUI menu layer has already been removed from the repo. The main remaining 2.0 debt is structural, not directional: the reboot shell still needs to be split into smaller files and `PackagesStore` still needs decomposition. The audit report in `docs/AUDIT_2_0.md` tracks that explicitly.
 
-### Error Handling
-
-Custom `AppError` enum captures common failure modes:
-- Homebrew not found
-- Command execution failures
-- JSON decoding errors
-- Operation timeouts
-- User cancellation
+That is an important distinction: the user-facing direction is already 2.0, but the codebase still has cleanup work before the release can honestly be called fully finished.
 
 ---
 
 ## Documentation
 
-Full documentation for contributors and maintainers is available in the `docs/` folder:
+Full documentation for contributors and maintainers lives in `docs/`:
+
+The docs are split by responsibility so you can jump straight to product context, architecture, workflows, release steps, or the current 2.0 audit without digging through one giant document.
 
 - [Docs Index](docs/README.md)
 - [App Overview](docs/APP_OVERVIEW.md)
@@ -312,92 +298,93 @@ Full documentation for contributors and maintainers is available in the `docs/` 
 - [Development Guide](docs/DEVELOPMENT_GUIDE.md)
 - [Testing Strategy](docs/TESTING_STRATEGY.md)
 - [Release Playbook](docs/RELEASE_PLAYBOOK.md)
-- [Community Developer Plan](docs/COMMUNITY_DEV_PLAN.md)
+- [2.0 Audit](docs/AUDIT_2_0.md)
 
 ---
 
 ## Development
 
-### Building from Source
+### Build
 
-Ensure you have Xcode 16.0+ installed with Command Line Tools:
+```bash
+./build.sh
+```
+
+Use the helper script if you want the fastest path to a local debug build with the expected project assumptions already baked in.
+
+Or directly:
 
 ```bash
 xcodebuild \
-    -project BrewPackageManager.xcodeproj \
-    -scheme BrewPackageManager \
-    -configuration Debug \
-    ENABLE_APP_SANDBOX=NO \
-    build
+  -project BrewPackageManager/BrewPackageManager.xcodeproj \
+  -scheme BrewPackageManager \
+  -configuration Debug \
+  ENABLE_APP_SANDBOX=NO \
+  build
 ```
 
-Swift strict concurrency is set to "minimal" to avoid false positives from JSONDecoder conformance issues.
+### Tests
 
-### Code Style
+```bash
+xcodebuild \
+  -project BrewPackageManager/BrewPackageManager.xcodeproj \
+  -scheme BrewPackageManager \
+  -destination 'platform=macOS' \
+  -derivedDataPath .derived-audit-2 \
+  test
+```
 
-- Explicit `self` only when required
-- Prefer `let` over `var`
-- Trailing closure syntax for single parameters
-- Group functionality with `// MARK:` comments
-- Descriptive variable names conveying intent
+This runs the current unit and UI smoke suite. It is the minimum baseline before talking about packaging or release work.
 
-### Testing
+### Docker Audit
 
-Manual testing scenarios:
-- Fresh install with no cached data
-- Large package lists (100+ packages)
-- Slow network conditions
-- Homebrew not installed
-- Concurrent update operations
-- Settings persistence
-- CSV export with special characters
+```bash
+./scripts/audit-swift-in-docker.sh
+```
 
-### Contributing
+The Docker lane is there to give us a repeatable external read on formatting, lint, and static analysis. It is especially useful when we want to separate “works locally” from “is actually clean enough to ship.”
 
-Contributions welcome! Please ensure:
-- Code compiles without warnings in Swift 6 mode
-- Follows existing patterns and style
-- Clear commit messages
-- Manual testing against real Homebrew
-- Documentation updates for user-facing changes
+This runs:
+
+- `SwiftLint` in Docker
+- `SwiftFormat --lint` in Docker
+- `Semgrep` in Docker
+
+and writes logs to `.audit-docker/`.
 
 ---
 
-## Homebrew Commands
+## Homebrew Commands Used
 
-The application uses Homebrew's JSON API:
+The app does not invent its own package-management semantics. It builds on top of Homebrew’s own commands and JSON output, then adds a native UI, state handling, and diagnostics around those flows.
 
 ```bash
-# Package Management
-brew info --json=v2 --installed        # List all installed packages
-brew outdated --json=v2                 # Check for outdated packages
-brew info --json=v2 <package>          # Get detailed package info
-brew upgrade <package>                  # Upgrade specific package
-brew upgrade                            # Upgrade all packages
-brew uninstall <package>                # Uninstall package
+# Package inventory and metadata
+brew info --json=v2 --installed
+brew outdated --json=v2
+brew info --json=v2 <package>
+brew search --json=v2 <query>
+brew install <package>
+brew uninstall <package>
 
-# Services Management
-brew services list --json               # List all services with status
-brew services start <service>           # Start a service
-brew services stop <service>            # Stop a service
-brew services restart <service>         # Restart a service
+# Services
+brew services list --json
+brew services start <service>
+brew services stop <service>
+brew services restart <service>
 
-# Cleanup & Cache
-brew cleanup --dry-run -s               # Preview cleanup operations
-brew cleanup -s                         # Cleanup old versions
-brew cleanup --prune=all                # Clear download cache
-brew --cache                            # Get cache directory path
+# Cleanup
+brew cleanup --dry-run -s
+brew cleanup -s
+brew --cache
 
-# Dependencies
-brew info --json=v2 <package>          # Get dependency information
-brew uses --installed <package>         # Get reverse dependencies
-brew list --formula                     # List installed formulae
-
-# Search
-brew search --json=v2 <query>          # Search for packages
+# Dependency inspection
+brew info --json=v2 --installed
+brew uses --installed <package>
 ```
 
-Environment variables prevent unwanted side effects:
+The app also sets:
+
 ```bash
 HOMEBREW_NO_AUTO_UPDATE=1
 HOMEBREW_NO_INSTALL_CLEANUP=1
@@ -407,68 +394,6 @@ HOMEBREW_NO_INSTALL_CLEANUP=1
 
 ## Credits
 
-This project builds upon infrastructure from [BrewServicesManager](https://github.com/validatedev/BrewServicesManager) by validatedev (MIT License).
-
-Reused components:
-- Command execution system
-- Design system (modifiers, gradients, layout constants)
-- Generic UI components
-
-The package management logic, state management, CSV export, and UI layout are original implementations.
+This project builds on ideas and infrastructure from [BrewServicesManager](https://github.com/validatedev/BrewServicesManager) by validatedev (MIT License), while the current 2.0 UI shell is a new implementation.
 
 **Icon**: [Icons8 Box Icon](https://icons8.com)
-
----
-
-## License
-
-MIT License
-
-Copyright (c) 2026
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
----
-
-## Author
-
-Created by [686f6c61](https://github.com/686f6c61)
-
----
-
-## Support
-
-For bugs, feature requests, or questions, please open an issue on the [GitHub repository](https://github.com/686f6c61/BrewPackageManager).
-
-When reporting bugs, include:
-- macOS version
-- Homebrew version (`brew --version`)
-- Number of installed packages
-- Steps to reproduce
-- Relevant logs from Console.app if available
-
----
-
-<div align="center">
-
-Made with care for the Homebrew community
-
-[Back to top](#brewpackagemanager)
-
-</div>

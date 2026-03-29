@@ -5,6 +5,26 @@ All notable changes to BrewPackageManager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-03-29
+
+### Added
+
+- Added a repeatable Docker audit lane via `scripts/audit-swift-in-docker.sh` using SwiftLint, SwiftFormat, and Semgrep.
+- Added a dedicated 2.0 audit document in `docs/AUDIT_2_0.md` to track release blockers, external-tool findings, and legacy inventory.
+- Added `.swift-version` to pin the audited Swift toolchain context for contributors and external formatting tools.
+
+### Changed
+
+- Reframed the current release target from the 1.9 rethinking branch into the `2.0.0` line.
+- Updated marketing/version references across the Xcode project, app metadata, DMG packaging script, and update-check fallback version to `2.0.0`.
+- Rewrote core documentation (`README`, development, testing, release, architecture, module reference, app overview) to reflect the 2.0 shell and current runtime behavior.
+- Updated release docs and scripts to reference `2.0.0` artifacts.
+
+### Fixed
+
+- Corrected documentation drift around cleanup behavior, release artifacts, and the active menu-bar flow.
+- Removed the remaining legacy pre-2.0 SwiftUI screen layer from the repo and aligned the docs with the new 2.0 shell.
+
 ## [1.8.1] - 2026-02-22
 
 ### Fixed
@@ -399,6 +419,7 @@ The package management logic, state management, CSV export functionality, and UI
 
 MIT License - Copyright (c) 2026
 
+[2.0.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v2.0.0
 [1.8.1]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.8.1
 [1.8.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.8.0
 [1.7.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.7.0

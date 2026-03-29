@@ -3,12 +3,13 @@
 ## 1) Prepare Branch
 
 1. Ensure tests pass.
-2. Confirm docs are updated for behavior changes.
-3. Confirm version references are aligned (`Info.plist`, project settings, scripts, README, changelog).
+2. Run the Docker audit lane and capture logs.
+3. Confirm docs are updated for behavior changes.
+4. Confirm version references are aligned (`Info.plist`, project settings, scripts, README, changelog).
 
 ## 2) Update Changelog
 
-- Add release section with:
+- Add a release section with:
   - Fixed
   - Changed
   - Added (if applicable)
@@ -27,16 +28,21 @@ xcodebuild \
   build
 ```
 
-Unit tests:
+Full tests:
 
 ```bash
 xcodebuild \
   -project BrewPackageManager/BrewPackageManager.xcodeproj \
   -scheme BrewPackageManager \
-  -configuration Debug \
-  -derivedDataPath .derived-audit-clean \
-  CODE_SIGNING_ALLOWED=NO \
-  test -only-testing:BrewPackageManagerTests
+  -destination 'platform=macOS' \
+  -derivedDataPath .derived-audit-2 \
+  test
+```
+
+Docker audit:
+
+```bash
+./scripts/audit-swift-in-docker.sh
 ```
 
 DMG build:
@@ -49,9 +55,10 @@ DMG build:
 
 1. Install app from DMG into `/Applications`.
 2. Launch and verify startup.
-3. Run one real upgrade operation.
-4. Validate pinned package skip behavior.
-5. Open settings and verify diagnostics panel loads.
+3. Run one real update operation.
+4. Validate pinned-package skip behavior.
+5. Validate cleanup/service flows.
+6. Verify screenshots/README if they changed for the release.
 
 ## 5) Publish
 
@@ -59,17 +66,17 @@ DMG build:
 2. Create tag:
 
 ```bash
-git tag v1.8.1
+git tag v2.0.0
 git push origin main --tags
 ```
 
 3. Create GitHub release:
-  - Title: `v1.8.1`
+  - Title: `v2.0.0`
   - Body from changelog.
   - Attach DMG from `dmg/`.
 
 ## 6) Post-release
 
-1. Monitor issues for first 48h.
-2. Capture regressions and tag as release follow-ups.
-3. Update `COMMUNITY_DEV_PLAN.md` milestone status if release included planned items.
+1. Monitor issues for the first 48h.
+2. Capture regressions and tag them as release follow-ups.
+3. Update `docs/AUDIT_2_0.md` and the release notes if the shipped scope or follow-up priorities changed during release stabilization.

@@ -44,7 +44,7 @@ actor GitHubClient {
 
     init(session: URLSession = .shared) {
         self.session = session
-        let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.8.1"
+        let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.0.0"
         self.userAgent = "BrewPackageManager/\(version)"
     }
 

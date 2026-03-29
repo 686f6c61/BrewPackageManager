@@ -2,9 +2,10 @@
 set -euo pipefail
 
 APP_NAME="BrewPackageManager"
-VERSION="1.8.1"
+VERSION="2.0.0"
 DMG_NAME="${APP_NAME}-${VERSION}"
 BUILD_CONFIGURATION="Release"
+SIGNING_IDENTITY="${SIGNING_IDENTITY:--}"
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_PATH="${PROJECT_DIR}/BrewPackageManager/${APP_NAME}.xcodeproj"
@@ -31,6 +32,22 @@ if [ ! -d "${BUILT_APP}" ]; then
     echo "Error: Built app not found at ${BUILT_APP}"
     exit 1
 fi
+
+echo "Signing app bundle with identity: ${SIGNING_IDENTITY}"
+codesign \
+    --force \
+    --deep \
+    --sign "${SIGNING_IDENTITY}" \
+    --timestamp=none \
+    "${BUILT_APP}"
+
+echo "Verifying signed app bundle..."
+codesign \
+    --verify \
+    --deep \
+    --strict \
+    --verbose=2 \
+    "${BUILT_APP}"
 
 echo "Preparing DMG staging directory..."
 rm -rf "${DMG_STAGING}"

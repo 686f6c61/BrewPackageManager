@@ -28,10 +28,40 @@ import OSLog
 @Observable
 final class PackagesStore {
 
+    struct HiddenItem: Identifiable, Equatable {
+        enum Kind: String, Equatable {
+            case package
+            case update
+
+            var title: String {
+                switch self {
+                case .package:
+                    "Hidden Package"
+                case .update:
+                    "Hidden Update"
+                }
+            }
+        }
+
+        let package: BrewPackage
+        let kind: Kind
+
+        var id: String { "\(kind.rawValue):\(package.id)" }
+    }
+
     // MARK: - Properties
 
     /// Logger for tracking store operations and debugging.
     private let logger = Logger(subsystem: "BrewPackageManager", category: "PackagesStore")
+
+    /// Defaults storage for lightweight UI preferences owned by the store.
+    private let defaults: UserDefaults
+
+    /// Keys for package visibility preferences persisted by the store.
+    private enum DefaultsKeys {
+        static let hiddenPackageIDs = "hiddenPackageIDs"
+        static let hiddenUpdatePackageIDs = "hiddenUpdatePackageIDs"
+    }
 
     /// The current loading state of the packages list.
     var state: PackagesState = .idle
@@ -43,6 +73,16 @@ final class PackagesStore {
 
     /// Package IDs that are currently selected for bulk updates.
     var selectedPackageIDs: Set<String> = []
+
+    /// Package IDs hidden from the main packages list.
+    private(set) var hiddenPackageIDs: Set<String> = [] {
+        didSet { persistSet(hiddenPackageIDs, forKey: DefaultsKeys.hiddenPackageIDs) }
+    }
+
+    /// Package IDs whose update state is hidden while keeping the package visible.
+    private(set) var hiddenUpdatePackageIDs: Set<String> = [] {
+        didSet { persistSet(hiddenUpdatePackageIDs, forKey: DefaultsKeys.hiddenUpdatePackageIDs) }
+    }
 
     // MARK: - Operation Tracking
 
@@ -76,6 +116,9 @@ final class PackagesStore {
 
     /// Number of results to show per page.
     private let searchPageSize = 15
+
+    /// Monotonic token used to ignore stale search responses.
+    private var activeSearchRequestID = 0
 
     // MARK: - Refresh Tracking
 
@@ -174,6 +217,38 @@ final class PackagesStore {
         outdatedPackages.count
     }
 
+    /// Packages visible in the main list after applying hidden package rules.
+    var visiblePackages: [BrewPackage] {
+        packages.filter { !isPackageHidden($0) }
+    }
+
+    /// Packages with user-visible, actionable updates.
+    var visibleOutdatedPackages: [BrewPackage] {
+        visiblePackages.filter { hasVisibleUpdate($0) }
+    }
+
+    /// Number of user-visible, actionable updates.
+    var visibleOutdatedCount: Int {
+        visibleOutdatedPackages.count
+    }
+
+    /// Hidden packages and updates that are still installed and can be managed in the UI.
+    var hiddenItems: [HiddenItem] {
+        packages
+            .sorted {
+                $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+            }
+            .compactMap { package in
+                if hiddenPackageIDs.contains(package.id) {
+                    return HiddenItem(package: package, kind: .package)
+                }
+                if hiddenUpdatePackageIDs.contains(package.id) {
+                    return HiddenItem(package: package, kind: .update)
+                }
+                return nil
+            }
+    }
+
     /// The error from the current state, if any.
     var error: AppError? {
         if case .error(let error) = state { return error }
@@ -190,9 +265,17 @@ final class PackagesStore {
 
     /// Initializes the store with a Homebrew client.
     ///
-    /// - Parameter client: The client to use for Homebrew operations. Defaults to a new BrewPackagesClient.
-    init(client: BrewPackagesClientProtocol = BrewPackagesClient()) {
+    /// - Parameters:
+    ///   - client: The client to use for Homebrew operations. Defaults to a new BrewPackagesClient.
+    ///   - defaults: The defaults store to use for visibility preferences. Defaults to `.standard`.
+    init(
+        client: BrewPackagesClientProtocol = BrewPackagesClient(),
+        defaults: UserDefaults = .standard
+    ) {
         self.client = client
+        self.defaults = defaults
+        hiddenPackageIDs = Self.loadStoredSet(from: defaults, forKey: DefaultsKeys.hiddenPackageIDs)
+        hiddenUpdatePackageIDs = Self.loadStoredSet(from: defaults, forKey: DefaultsKeys.hiddenUpdatePackageIDs)
     }
 
     // MARK: - Public Methods
@@ -252,17 +335,18 @@ final class PackagesStore {
             let packages = installed.map {
                 mergedPackage($0, outdatedSet: outdatedSet, pinnedNames: pinnedNames)
             }
+            reconcileLocalState(with: packages)
 
             let now = Date()
             lastRefresh = now
             persistPackagesCache(packages: packages, lastRefresh: now)
 
             state = .loaded(packages)
-            logger.info("Loaded \(packages.count) packages (\(self.outdatedCount) outdated)")
+            logger.info("Loaded \(packages.count) packages (\(self.visibleOutdatedCount) visible updates)")
             logHistory(
                 operation: .refresh,
                 packageName: "packages",
-                details: "Loaded \(packages.count) packages (\(self.outdatedCount) outdated)",
+                details: "Loaded \(packages.count) packages (\(self.visibleOutdatedCount) visible updates)",
                 success: true
             )
         } catch is CancellationError {
@@ -367,6 +451,11 @@ final class PackagesStore {
     ///
     /// - Parameter packageID: The ID of the package to toggle.
     func toggleSelection(for packageID: String) {
+        guard let package = packages.first(where: { $0.id == packageID }), hasVisibleUpdate(package) else {
+            selectedPackageIDs.remove(packageID)
+            return
+        }
+
         if selectedPackageIDs.contains(packageID) {
             selectedPackageIDs.remove(packageID)
         } else {
@@ -379,14 +468,57 @@ final class PackagesStore {
         isPackagePinned(package, pinnedNames: pinnedFormulaNames)
     }
 
+    /// Returns whether the package is hidden from the main packages list.
+    func isPackageHidden(_ package: BrewPackage) -> Bool {
+        hiddenPackageIDs.contains(package.id)
+    }
+
+    /// Returns whether the package's update state is hidden.
+    func isUpdateHidden(_ package: BrewPackage) -> Bool {
+        hiddenUpdatePackageIDs.contains(package.id)
+    }
+
+    /// Returns whether a package has a visible, actionable update.
+    func hasVisibleUpdate(_ package: BrewPackage) -> Bool {
+        guard package.hasUpdate else { return false }
+        guard !isPackageHidden(package), !isUpdateHidden(package) else { return false }
+        return !isPackagePinned(package)
+    }
+
+    /// Returns whether the package has an update that is blocked because it is pinned.
+    func showsPinnedUpdateNotice(_ package: BrewPackage) -> Bool {
+        guard package.hasUpdate else { return false }
+        guard !isPackageHidden(package), !isUpdateHidden(package) else { return false }
+        return isPackagePinned(package)
+    }
+
+    /// Hides the package from the installed packages list.
+    func hidePackage(_ package: BrewPackage) {
+        hiddenPackageIDs.insert(package.id)
+        hiddenUpdatePackageIDs.remove(package.id)
+        selectedPackageIDs.remove(package.id)
+    }
+
+    /// Restores a previously hidden package.
+    func unhidePackage(_ packageID: String) {
+        hiddenPackageIDs.remove(packageID)
+    }
+
+    /// Hides the update state for a package while keeping the package visible.
+    func hideUpdate(for package: BrewPackage) {
+        guard package.hasUpdate, !isPackageHidden(package) else { return }
+        hiddenUpdatePackageIDs.insert(package.id)
+        selectedPackageIDs.remove(package.id)
+    }
+
+    /// Restores a previously hidden update.
+    func unhideUpdate(for packageID: String) {
+        hiddenUpdatePackageIDs.remove(packageID)
+    }
+
     /// Selects all packages that have updates available.
     func selectAllOutdated() {
-        // Skip pinned packages because Homebrew refuses to upgrade them.
-        selectedPackageIDs = Set(
-            outdatedPackages
-                .filter { !isPackagePinned($0) }
-                .map { $0.id }
-        )
+        selectedPackageIDs = Set(visibleOutdatedPackages.map(\.id))
     }
 
     /// Deselects all packages.
@@ -404,7 +536,9 @@ final class PackagesStore {
     func upgradeSelected(debugMode: Bool = false) async {
         guard !isUpgradingSelected else { return }
 
-        let selectedPackages = packages.filter { selectedPackageIDs.contains($0.id) }
+        let selectedPackages = packages.filter {
+            selectedPackageIDs.contains($0.id) && !isPackageHidden($0) && !isUpdateHidden($0)
+        }
         guard !selectedPackages.isEmpty else { return }
 
         let pinnedNames = await fetchPinnedFormulaNames(debugMode: debugMode)
@@ -643,6 +777,20 @@ final class PackagesStore {
         return value
     }
 
+    /// Loads a stored set of strings from defaults.
+    private static func loadStoredSet(from defaults: UserDefaults, forKey key: String) -> Set<String> {
+        Set(defaults.stringArray(forKey: key) ?? [])
+    }
+
+    /// Persists a set of strings to defaults using a stable ordering.
+    private func persistSet(_ set: Set<String>, forKey key: String) {
+        if set.isEmpty {
+            defaults.removeObject(forKey: key)
+        } else {
+            defaults.set(set.sorted(), forKey: key)
+        }
+    }
+
     /// Loads pinned formula names from Homebrew and keeps last known state.
     private func fetchPinnedFormulaNames(debugMode: Bool) async -> Set<String> {
         do {
@@ -708,6 +856,16 @@ final class PackagesStore {
         return message.contains("not upgrading") && message.contains("pinned")
     }
 
+    /// Removes stale hidden state and invalid selections after a new package snapshot loads.
+    private func reconcileLocalState(with packages: [BrewPackage]) {
+        let packageIDs = Set(packages.map(\.id))
+        hiddenPackageIDs.formIntersection(packageIDs)
+        hiddenUpdatePackageIDs.formIntersection(packageIDs)
+
+        let visibleUpdateIDs = Set(packages.filter { hasVisibleUpdate($0) }.map(\.id))
+        selectedPackageIDs.formIntersection(visibleUpdateIDs)
+    }
+
     // MARK: - Private Methods
 
     /// Sets the state to error and logs the error.
@@ -733,6 +891,7 @@ final class PackagesStore {
 
             guard let cached else { return }
 
+            reconcileLocalState(with: cached.packages)
             state = .loaded(cached.packages)
             lastRefresh = cached.lastRefresh
         }
@@ -782,14 +941,20 @@ final class PackagesStore {
     ///   - query: The search term to query.
     ///   - debugMode: Whether to run in debug mode.
     func search(query: String, debugMode: Bool = false) async {
-        guard !query.isEmpty else {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !normalizedQuery.isEmpty else {
+            activeSearchRequestID += 1
             searchState = .idle
             searchResults = []
             return
         }
 
-        logger.info("Searching for packages: \(query)")
-        searchState = .searching(query: query)
+        activeSearchRequestID += 1
+        let requestID = activeSearchRequestID
+
+        logger.info("Searching for packages: \(normalizedQuery)")
+        searchState = .searching(query: normalizedQuery)
 
         do {
             let installedTypesByName = Dictionary(
@@ -799,11 +964,11 @@ final class PackagesStore {
 
             let typedMatches: [(name: String, type: PackageType)]
             if let filter = searchTypeFilter {
-                let names = try await client.searchPackages(query, type: filter, debugMode: debugMode)
+                let names = try await client.searchPackages(normalizedQuery, type: filter, debugMode: debugMode)
                 typedMatches = names.map { (name: $0, type: filter) }
             } else {
-                let formulaNames = try await client.searchPackages(query, type: .formula, debugMode: debugMode)
-                let caskNames = try await client.searchPackages(query, type: .cask, debugMode: debugMode)
+                let formulaNames = try await client.searchPackages(normalizedQuery, type: .formula, debugMode: debugMode)
+                let caskNames = try await client.searchPackages(normalizedQuery, type: .cask, debugMode: debugMode)
 
                 var deduplicated: [(name: String, type: PackageType)] = []
                 var seenKeys = Set<String>()
@@ -825,6 +990,11 @@ final class PackagesStore {
                 typedMatches = deduplicated
             }
 
+            guard requestID == activeSearchRequestID else {
+                logger.debug("Ignoring stale search results for query: \(normalizedQuery)")
+                return
+            }
+
             let hasMore = typedMatches.count > searchPageSize
             let pageMatches = Array(typedMatches.prefix(searchPageSize))
 
@@ -837,16 +1007,20 @@ final class PackagesStore {
                 )
             }
 
-            searchState = .loaded(query: query, results: searchResults, hasMore: hasMore)
+            searchState = .loaded(query: normalizedQuery, results: searchResults, hasMore: hasMore)
             logger.info("Found \(typedMatches.count) packages (\(self.searchResults.count) shown)")
             logHistory(
                 operation: .search,
-                packageName: query,
+                packageName: normalizedQuery,
                 details: "Found \(typedMatches.count) results",
                 success: true
             )
 
         } catch let error as AppError {
+            guard requestID == activeSearchRequestID else {
+                logger.debug("Ignoring stale search error for query: \(normalizedQuery)")
+                return
+            }
             if case .cancelled = error {
                 logger.debug("Search cancelled")
                 searchState = .idle
@@ -854,20 +1028,27 @@ final class PackagesStore {
             }
             searchState = .error(error)
             logger.error("Search failed: \(error.localizedDescription)")
-            logHistory(operation: .search, packageName: query, details: error.localizedDescription, success: false)
+            logHistory(operation: .search, packageName: normalizedQuery, details: error.localizedDescription, success: false)
         } catch {
+            guard requestID == activeSearchRequestID else {
+                logger.debug("Ignoring stale search failure for query: \(normalizedQuery)")
+                return
+            }
             let appError = AppError.brewFailed(exitCode: -1, stderr: error.localizedDescription)
             searchState = .error(appError)
             logger.error("Search failed: \(error.localizedDescription)")
-            logHistory(operation: .search, packageName: query, details: error.localizedDescription, success: false)
+            logHistory(operation: .search, packageName: normalizedQuery, details: error.localizedDescription, success: false)
         }
     }
 
     /// Clears search results and resets to idle state.
-    func clearSearch() {
+    func clearSearch(resetFilter: Bool = false) {
+        activeSearchRequestID += 1
         searchState = .idle
         searchResults = []
-        searchTypeFilter = nil
+        if resetFilter {
+            searchTypeFilter = nil
+        }
     }
 
     /// Fetches detailed info for a search result.

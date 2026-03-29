@@ -2,9 +2,10 @@
 
 ## Prerequisites
 
-- macOS 15.0+.
-- Xcode 16+.
-- Homebrew installed and working in terminal.
+- macOS 15.0+
+- Xcode 26+
+- Homebrew installed and working in Terminal
+- Docker 29+ for the external audit lane
 
 ## Clone and Build
 
@@ -13,7 +14,7 @@ git clone https://github.com/686f6c61/BrewPackageManager.git
 cd BrewPackageManager
 ```
 
-Debug build using helper script:
+Debug build using the helper script:
 
 ```bash
 ./build.sh
@@ -32,22 +33,34 @@ xcodebuild \
 
 ## Run Locally
 
-- From Xcode with `BrewPackageManager` scheme.
-- Or open the built app from derived data path emitted by `build.sh`.
+- From Xcode with the `BrewPackageManager` scheme.
+- Or open the built app from the derived-data path emitted by `build.sh`.
 
 ## Tests
 
-Run unit tests:
+Full local test pass:
 
 ```bash
 xcodebuild \
   -project BrewPackageManager/BrewPackageManager.xcodeproj \
   -scheme BrewPackageManager \
-  -configuration Debug \
-  -derivedDataPath .derived-audit-clean \
-  CODE_SIGNING_ALLOWED=NO \
-  test -only-testing:BrewPackageManagerTests
+  -destination 'platform=macOS' \
+  -derivedDataPath .derived-audit-2 \
+  test
 ```
+
+## Docker Audit Lane
+
+Run the external static-audit lane with Docker:
+
+```bash
+./scripts/audit-swift-in-docker.sh
+```
+
+Outputs:
+- `.audit-docker/swiftlint.log`
+- `.audit-docker/swiftformat.log`
+- `.audit-docker/semgrep.log`
 
 ## Packaging
 
@@ -58,8 +71,7 @@ Create a release DMG:
 ```
 
 Output:
-
-- `dmg/BrewPackageManager-1.8.1.dmg`
+- `dmg/BrewPackageManager-2.0.0.dmg`
 
 ## Coding Expectations
 
@@ -69,13 +81,14 @@ Output:
 - Use typed domain models instead of ad-hoc dictionaries.
 - Handle cancellation and timeout explicitly in long operations.
 - Update docs in `docs/` when behavior changes.
+- Prefer smaller SwiftUI screen files over giant multi-screen files.
 
 ## Common Debugging
 
 - Homebrew command behavior:
-  - Reproduce same command directly in terminal.
+  - Reproduce the same command directly in Terminal.
 - App command diagnostics:
-  - Open `Settings > Advanced` for the last command metadata.
+  - Enable debug mode and inspect the most recent command metadata.
 - macOS crash files:
   - `~/Library/Logs/DiagnosticReports/`
 - Unified logs for this app:

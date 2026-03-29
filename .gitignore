@@ -96,3 +96,21 @@ iOSInjectionProject/
 *.swp
 *.swo
 *~
+
+# Local audit and runtime artifacts
+.audit-*.log
+.audit-docker/
+.release-*.log
+.derived*/
+.derived-*.log
+.preview/
+.qa-screens/
+.xcodebuild.log
+*.profraw
+*.profdata
+*.xcresult
+*.xcresult/
+**/build_output.log
+
+# Local release artifacts
+dmg/*.dmg

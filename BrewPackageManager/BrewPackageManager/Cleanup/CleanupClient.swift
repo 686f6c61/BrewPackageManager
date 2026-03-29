@@ -59,6 +59,64 @@ actor CleanupClient {
         }
     }
 
+    /// Resolves Homebrew's cache directory.
+    ///
+    /// `brew cleanup --prune=all` does not fully empty this directory for
+    /// installed formulae/casks, so the app needs the real path to clear it.
+    private func getCacheDirectoryURL() async throws -> URL {
+        let brewURL = try await ensureBrewURL()
+        let result = try await CommandExecutor.run(
+            brewURL,
+            arguments: ["--cache"],
+            environment: environment,
+            timeout: .seconds(10)
+        )
+        try ensureNotCancelled(result)
+
+        guard result.exitCode == 0 else {
+            logger.error("Failed to get cache directory: \(result.stderr)")
+            throw AppError.shellCommandFailed(
+                command: "brew --cache",
+                exitCode: result.exitCode,
+                stderr: result.stderr
+            )
+        }
+
+        return try Self.parseCacheDirectoryURL(from: result.stdout)
+    }
+
+    /// Parses and validates the cache directory path returned by Homebrew.
+    static func parseCacheDirectoryURL(from output: String) throws -> URL {
+        let cachePath = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cachePath.isEmpty else {
+            throw AppError.unknown("Homebrew returned an empty cache path.")
+        }
+
+        let cacheURL = URL(filePath: cachePath).standardizedFileURL
+        guard cacheURL.path() != "/" else {
+            throw AppError.unknown("Refusing to clear cache at the filesystem root.")
+        }
+
+        return cacheURL
+    }
+
+    /// Removes all contents inside the cache directory while keeping the root directory.
+    static func clearDirectoryContents(at directoryURL: URL, fileManager: FileManager = .default) throws -> Int {
+        try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+
+        let children = try fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: nil,
+            options: []
+        )
+
+        for childURL in children {
+            try fileManager.removeItem(at: childURL)
+        }
+
+        return children.count
+    }
+
     // MARK: - Public Methods
 
     /// Get cleanup information (cache size, old versions).
@@ -108,25 +166,8 @@ actor CleanupClient {
     /// - Returns: Tuple with cache size and file count.
     /// - Throws: `AppError` if the command fails.
     private func getCacheSize() async throws -> (cacheSize: Int64, cachedFiles: Int) {
-        let brewURL = try await ensureBrewURL()
-        let result = try await CommandExecutor.run(
-            brewURL,
-            arguments: ["--cache"],
-            environment: environment,
-            timeout: .seconds(10)
-        )
-        try ensureNotCancelled(result)
-
-        guard result.exitCode == 0 else {
-            logger.error("Failed to get cache directory: \(result.stderr)")
-            throw AppError.shellCommandFailed(
-                command: "brew --cache",
-                exitCode: result.exitCode,
-                stderr: result.stderr
-            )
-        }
-
-        let cachePath = result.stdout.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        let cacheURL = try await getCacheDirectoryURL()
+        let cachePath = cacheURL.path()
 
         // Get directory size using `du -sk`
         let duResult = try await CommandExecutor.run(
@@ -175,7 +216,8 @@ actor CleanupClient {
 
     /// Perform cleanup operation.
     ///
-    /// Executes `brew cleanup` to remove old versions and cached downloads.
+    /// Executes `brew cleanup` to remove old versions and let Homebrew prune
+    /// cache entries according to its current cleanup rules.
     ///
     /// - Parameter pruneAll: If true, removes all cached downloads (--prune=all).
     /// - Returns: Cleanup result message.
@@ -215,23 +257,26 @@ actor CleanupClient {
 
     /// Clear download cache.
     ///
-    /// Executes `brew cleanup --prune=all` to remove all cached downloads.
+    /// Homebrew keeps downloads for installed formulae/casks even with
+    /// `brew cleanup --prune=all`, so this empties the cache directory directly.
     ///
     /// - Returns: Number of bytes freed.
     /// - Throws: `AppError` if the command fails.
     func clearCache() async throws -> Int64 {
         logger.info("Clearing download cache")
 
+        let cacheDirectoryURL = try await getCacheDirectoryURL()
+
         // Get cache size before cleanup
         let beforeSize = try await getCacheSize().cacheSize
 
-        // Perform cleanup with prune=all
-        _ = try await performCleanup(pruneAll: true)
+        let removedEntries = try Self.clearDirectoryContents(at: cacheDirectoryURL)
+        logger.info("Removed \(removedEntries) entries from Homebrew cache directory")
 
         // Get cache size after cleanup
         let afterSize = try await getCacheSize().cacheSize
 
-        let freedBytes = beforeSize - afterSize
+        let freedBytes = max(0, beforeSize - afterSize)
         logger.info("Freed \(ByteCountFormatter.string(fromByteCount: freedBytes, countStyle: .file))")
 
         return freedBytes

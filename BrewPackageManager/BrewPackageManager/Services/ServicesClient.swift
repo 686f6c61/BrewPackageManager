@@ -88,14 +88,18 @@ actor ServicesClient {
             )
         }
 
-        // Parse JSON response
-        guard let data = result.stdout.data(using: .utf8),
-              let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        guard let data = result.stdout.data(using: .utf8) else {
             logger.error("Failed to parse services JSON")
             throw AppError.invalidJSONResponse(command: "brew services list --json")
         }
 
-        let services = jsonArray.compactMap { BrewService.parse(from: $0) }
+        let services: [BrewService]
+        do {
+            services = try JSONDecoder().decode([BrewService].self, from: data)
+        } catch {
+            logger.error("Failed to decode services JSON: \(error.localizedDescription)")
+            throw AppError.invalidJSONResponse(command: "brew services list --json")
+        }
         logger.info("Fetched \(services.count) services")
 
         return services

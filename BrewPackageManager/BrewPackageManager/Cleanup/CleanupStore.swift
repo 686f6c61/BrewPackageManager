@@ -141,7 +141,39 @@ final class CleanupStore {
 
         do {
             let freedBytes = try await client.clearCache()
-            lastCleanupResult = "Freed \(ByteCountFormatter.string(fromByteCount: freedBytes, countStyle: .file))"
+            let freedSize = ByteCountFormatter.string(fromByteCount: freedBytes, countStyle: .file)
+            let remainingOldVersions = cleanupInfo.oldVersions
+
+            // Reflect the cache clear immediately so the UI does not appear stuck
+            // while `brew cleanup --dry-run` recomputes old versions in the background.
+            cleanupInfo = CleanupInfo(
+                cacheSize: 0,
+                cachedFiles: 0,
+                oldVersions: remainingOldVersions
+            )
+            lastCleanupResult = "Cache cleared. Freed \(freedSize). \(cleanupInfo.oldVersionsRemainingMessage)"
+            isCleaning = false
+
+            Task { [weak self] in
+                guard let self else { return }
+
+                do {
+                    let refreshedInfo = try await self.client.getCleanupInfo()
+                    await MainActor.run {
+                        self.cleanupInfo = CleanupInfo(
+                            cacheSize: 0,
+                            cachedFiles: 0,
+                            oldVersions: refreshedInfo.oldVersions
+                        )
+                        self.lastCleanupResult = "Cache cleared. Freed \(freedSize). \(self.cleanupInfo.oldVersionsRemainingMessage)"
+                    }
+                } catch let refreshError as AppError {
+                    self.logger.error("Cache cleared but failed to refresh cleanup info: \(refreshError.localizedDescription)")
+                } catch {
+                    self.logger.error("Cache cleared but failed to refresh cleanup info: \(error.localizedDescription)")
+                }
+            }
+
             logger.info("Cache cleared: \(freedBytes) bytes freed")
             logHistory(
                 operation: .cleanup,
@@ -149,9 +181,6 @@ final class CleanupStore {
                 details: lastCleanupResult,
                 success: true
             )
-
-            // Refresh cleanup info after operation
-            await fetchCleanupInfo()
         } catch let error as AppError {
             if case .cancelled = error {
                 logger.debug("Clear cache cancelled")
@@ -160,6 +189,7 @@ final class CleanupStore {
             }
             logger.error("Failed to clear cache: \(error.localizedDescription)")
             lastError = error
+            isCleaning = false
             logHistory(
                 operation: .cleanup,
                 packageName: "clear cache",
@@ -169,6 +199,7 @@ final class CleanupStore {
         } catch {
             logger.error("Unexpected error clearing cache: \(error.localizedDescription)")
             lastError = AppError.unknown(error.localizedDescription)
+            isCleaning = false
             logHistory(
                 operation: .cleanup,
                 packageName: "clear cache",
@@ -176,8 +207,6 @@ final class CleanupStore {
                 success: false
             )
         }
-
-        isCleaning = false
     }
 
     private func logHistory(

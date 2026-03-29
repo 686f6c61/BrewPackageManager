@@ -11,72 +11,43 @@
 
 import SwiftUI
 
-/// The main app entry point for BrewPackageManager.
+/// The main app entry point for Brew Package Manager.
 ///
-/// This app provides a menu bar interface for managing Homebrew packages on macOS.
-/// It creates a `MenuBarExtra` with a dynamic icon that reflects the current state:
-/// - Error state when Homebrew is not available
-/// - Refreshing indicator during package list updates
-/// - Upgrade indicator during package upgrades
-/// - Badge when updates are available
-/// - Normal state otherwise
-///
-/// The app maintains two primary state objects:
-/// - `PackagesStore`: Manages package data and operations
-/// - `AppSettings`: Stores user preferences
+/// The visible menu bar item is managed through AppKit so we can distinguish
+/// left click (open the popover) from right click (show a quick actions menu).
 @main
 struct BrewPackageManagerApp: App {
 
-    // MARK: - State
+    // MARK: - App Lifecycle
 
-    /// The main store managing package state and operations.
-    @State private var packagesStore = PackagesStore()
+    @NSApplicationDelegateAdaptor(BrewPackageManagerAppDelegate.self) private var appDelegate
 
-    /// User-configurable application settings.
-    @State private var appSettings = AppSettings()
+    // MARK: - Dependencies
 
-    // MARK: - Computed Properties
+    private let packagesStore: PackagesStore
+    private let appSettings: AppSettings
 
-    /// Determines the menu bar icon based on current app state.
-    ///
-    /// Icon selection priority:
-    /// 1. Error icon if Homebrew is unavailable
-    /// 2. Refreshing icon during package refresh
-    /// 3. Upgrade icon during package upgrades
-    /// 4. Badge icon when outdated packages exist
-    /// 5. Normal icon otherwise
-    private var iconName: String {
-        if !packagesStore.isBrewAvailable {
-            return "cube.box.fill"  // Error state
-        }
+    // MARK: - Initialization
 
-        if packagesStore.isRefreshing {
-            return "arrow.triangle.2.circlepath"  // Refreshing
-        }
+    init() {
+        let packagesStore = PackagesStore()
+        let appSettings = AppSettings()
 
-        if packagesStore.isUpgradingSelected {
-            return "arrow.up.circle.fill"  // Upgrading
-        }
+        self.packagesStore = packagesStore
+        self.appSettings = appSettings
 
-        let outdatedCount = packagesStore.outdatedCount
-        if outdatedCount > 0 {
-            return "cube.box"  // Updates available
-        }
-
-        return "cube.box.fill"  // Normal state
+        appDelegate.configure(packagesStore: packagesStore, appSettings: appSettings)
     }
 
     // MARK: - Scene
 
     var body: some Scene {
-        MenuBarExtra("Brew Package Manager", systemImage: iconName) {
-            MenuBarRootView()
-                .environment(packagesStore)
-                .environment(appSettings)
+        Settings {
+            EmptyView()
         }
-        .menuBarExtraStyle(.window)
-        .windowResizability(.contentSize)
         .commands {
+            CommandGroup(replacing: .newItem) { }
+            CommandGroup(replacing: .appSettings) { }
             CommandGroup(replacing: .appTermination) {
                 Button("Quit Brew Package Manager") {
                     AppKitBridge.quit()
