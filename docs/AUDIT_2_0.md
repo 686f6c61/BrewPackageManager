@@ -1,8 +1,8 @@
 # 2.0 Audit
 
-Date: `2026-03-29`
-Branch audited: `1.9.0-rethinking`
-Target release line: `2.0.0`
+Date: `2026-05-16`
+Branch audited: `main`
+Target release line: `2.0.1`
 
 ## Scope
 
@@ -11,16 +11,16 @@ This audit focuses on four things:
 1. Build and test health.
 2. External Swift-aware audit tooling running in Docker.
 3. Legacy UI/runtime mismatches after the 2.0 shell reboot.
-4. Documentation and release readiness for a 2.0 milestone.
+4. Documentation, signing, and release readiness for a 2.0 patch milestone.
 
 ## Environment
 
-- macOS host with Xcode `26.4`
-- Swift `6.3`
-- Docker `29.3.1`
-- SwiftLint in Docker: `0.63.2`
-- SwiftFormat in Docker: `0.60.1`
-- Semgrep in Docker: `1.155.0`
+- macOS host with Xcode `26.5`
+- Swift `6.3.2`
+- Docker `29.4.3`
+- SwiftLint in Docker: `latest`
+- SwiftFormat in Docker: `latest`
+- Semgrep in Docker: `latest`
 
 ## Commands Run
 
@@ -36,7 +36,7 @@ xcodebuild test \
 
 Result:
 - `TEST SUCCEEDED`
-- Logs: `.audit-test-2.log`
+- Logs: `.test-2026-05.log`
 
 ### Docker audit lane
 
@@ -92,13 +92,13 @@ This is still the biggest non-UI refactor target for 2.0.
 
 Docker-based audit results:
 
-- `SwiftLint`: `152` violations
-- `SwiftFormat --lint`: `71/72` files require formatting
+- `SwiftLint`: `133` violations
+- `SwiftFormat --lint`: `43/43` source files require formatting
 - `Semgrep`: `0` findings from the generic auto ruleset
 
 Top SwiftLint rule counts from this audit:
 - `94` `line_length`
-- `16` `trailing_whitespace`
+- `2` `trailing_whitespace`
 - `13` `nesting`
 - `7` `function_body_length`
 - `6` `type_body_length`
@@ -114,6 +114,16 @@ The repo had no pinned Swift formatting version hint for Docker/local tooling be
 
 This reduces ambiguity for format/lint tooling, but the repo still lacks committed `.swiftlint.yml` and `.swiftformat` configuration.
 
+### P1: Distribution hardening still depends on Developer ID and notarization credentials
+
+The local packaging flow is now capable of:
+
+- signing the app bundle after build
+- signing the DMG container when a `Developer ID Application` identity is provided
+- notarizing and stapling the DMG when `NOTARYTOOL_PROFILE` is configured
+
+However, the current machine still only has an `Apple Development` identity available. That is enough for local validation, but not for the final “no Gatekeeper friction” public distribution path.
+
 ### P2: Documentation had drifted away from runtime reality
 
 Before this audit, the docs still referenced:
@@ -128,7 +138,7 @@ That drift is addressed in this documentation pass.
 
 - Full `xcodebuild test` pass on macOS.
 - Dockerized `Semgrep` pass with no findings on the current tracked files.
-- Versioning and release docs are now aligned to `2.0.0`.
+- Versioning and release docs are now aligned to `2.0.1`.
 
 ## Recommended Next Steps Before Final 2.0 Release
 
@@ -136,4 +146,4 @@ That drift is addressed in this documentation pass.
 2. Decompose `/Users/00b/Desktop/homebrew/BrewPackageManager/BrewPackageManager/BrewPackageManager/Packages/PackagesStore.swift` into smaller stores/coordinators.
 3. Add committed style configs for SwiftLint and SwiftFormat, then fix the repo to that baseline.
 4. Expand UI tests to cover the new 2.0 shell flows, not only launch/smoke scenarios.
-5. Refresh README screenshots with final 2.0 captures before shipping the release DMG.
+5. Provision a `Developer ID Application` certificate plus `notarytool` keychain profile before the next public DMG meant for broad distribution.

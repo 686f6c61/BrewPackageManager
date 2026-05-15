@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - macOS 15.0+
-- Xcode 26+
+- Xcode 26.5+
 - Homebrew installed and working in Terminal
 - Docker 29+ for the external audit lane
 
@@ -71,7 +71,15 @@ Create a release DMG:
 ```
 
 Output:
-- `dmg/BrewPackageManager-2.0.0.dmg`
+- `dmg/BrewPackageManager-2.0.1.dmg`
+
+For public release artifacts, use a Developer ID identity and a stored `notarytool` profile:
+
+```bash
+SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+NOTARYTOOL_PROFILE="bpm-notary" \
+./create-dmg.sh
+```
 
 ## Coding Expectations
 

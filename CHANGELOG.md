@@ -5,6 +5,25 @@ All notable changes to BrewPackageManager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-05-16
+
+### Added
+
+- Added optional Developer ID signing and `notarytool` notarization support to `create-dmg.sh` using `SIGNING_IDENTITY` and `NOTARYTOOL_PROFILE`.
+
+### Changed
+
+- Updated release metadata, docs, and packaging references from `2.0.0` to `2.0.1`.
+- Updated the audited local toolchain pin to Swift `6.3.2`.
+- Enabled Hardened Runtime for the app target's Release configuration to align with Apple's current notarization requirements.
+
+### Fixed
+
+- Fixed the DMG packaging flow so the built app bundle is re-signed and verified before being staged into the DMG.
+- Fixed the release packaging path so Developer ID builds can also sign the DMG container and staple notarization results when configured.
+- Removed the stale, unused entitlements file that contained development-only values such as `get-task-allow`.
+- Removed stale per-file `Version:` header comments that had drifted across the codebase.
+
 ## [2.0.0] - 2026-03-29
 
 ### Added
@@ -419,6 +438,7 @@ The package management logic, state management, CSV export functionality, and UI
 
 MIT License - Copyright (c) 2026
 
+[2.0.1]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v2.0.1
 [2.0.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v2.0.0
 [1.8.1]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.8.1
 [1.8.0]: https://github.com/686f6c61/BrewPackageManager/releases/tag/v1.8.0

@@ -2,10 +2,12 @@
 set -euo pipefail
 
 APP_NAME="BrewPackageManager"
-VERSION="2.0.0"
+VERSION="2.0.1"
 DMG_NAME="${APP_NAME}-${VERSION}"
 BUILD_CONFIGURATION="Release"
-SIGNING_IDENTITY="${SIGNING_IDENTITY:--}"
+DEFAULT_DEVELOPER_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | awk -F '\"' '/Developer ID Application:/ { print $2; exit }')"
+SIGNING_IDENTITY="${SIGNING_IDENTITY:-${DEFAULT_DEVELOPER_IDENTITY:--}}"
+NOTARYTOOL_PROFILE="${NOTARYTOOL_PROFILE:-}"
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_PATH="${PROJECT_DIR}/BrewPackageManager/${APP_NAME}.xcodeproj"
@@ -33,13 +35,25 @@ if [ ! -d "${BUILT_APP}" ]; then
     exit 1
 fi
 
+IS_DEVELOPER_ID=0
+if [[ "${SIGNING_IDENTITY}" == Developer\ ID\ Application:* ]]; then
+    IS_DEVELOPER_ID=1
+fi
+
 echo "Signing app bundle with identity: ${SIGNING_IDENTITY}"
-codesign \
-    --force \
-    --deep \
-    --sign "${SIGNING_IDENTITY}" \
-    --timestamp=none \
-    "${BUILT_APP}"
+SIGN_APP_ARGS=(
+    --force
+    --deep
+    --sign "${SIGNING_IDENTITY}"
+)
+
+if [ "${IS_DEVELOPER_ID}" -eq 1 ]; then
+    SIGN_APP_ARGS+=(--options runtime --timestamp)
+else
+    SIGN_APP_ARGS+=(--timestamp=none)
+fi
+
+codesign "${SIGN_APP_ARGS[@]}" "${BUILT_APP}"
 
 echo "Verifying signed app bundle..."
 codesign \
@@ -113,6 +127,31 @@ hdiutil convert "${DMG_TEMP}" \
 echo "Cleaning temporary artifacts..."
 rm -f "${DMG_TEMP}"
 rm -rf "${DMG_STAGING}"
+
+if [ "${IS_DEVELOPER_ID}" -eq 1 ]; then
+    echo "Signing DMG container with Developer ID..."
+    codesign \
+        --force \
+        --sign "${SIGNING_IDENTITY}" \
+        --timestamp \
+        "${DMG_FINAL}"
+
+    echo "Verifying DMG signature..."
+    codesign --verify --verbose=2 "${DMG_FINAL}"
+
+    if [ -n "${NOTARYTOOL_PROFILE}" ]; then
+        echo "Submitting DMG for notarization with profile: ${NOTARYTOOL_PROFILE}"
+        xcrun notarytool submit "${DMG_FINAL}" --keychain-profile "${NOTARYTOOL_PROFILE}" --wait
+
+        echo "Stapling notarization ticket..."
+        xcrun stapler staple "${DMG_FINAL}"
+        xcrun stapler validate "${DMG_FINAL}"
+    else
+        echo "Warning: DMG is Developer ID signed but not notarized. Gatekeeper may still warn on download."
+    fi
+else
+    echo "Warning: DMG uses ad-hoc signing for local validation only. Use a Developer ID identity and notarization for public distribution."
+fi
 
 echo "DMG created: ${DMG_FINAL}"
 ls -lh "${DMG_FINAL}"

@@ -1161,7 +1161,7 @@ private struct RebootHiddenItemsScreen: View {
 
 private struct RebootHelpScreen: View {
     private var currentVersion: String {
-        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.0.0"
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.0.1"
     }
 
     var body: some View {

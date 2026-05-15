@@ -4,7 +4,6 @@
 //
 //  Created by 686f6c61
 //  Repository: https://github.com/686f6c61/BrewPackageManager
-//  Version: 1.6.0
 //
 //  A native macOS menu bar application for managing Homebrew packages.
 //  Built with Swift and SwiftUI.
@@ -44,7 +43,7 @@ actor GitHubClient {
 
     init(session: URLSession = .shared) {
         self.session = session
-        let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.0.0"
+        let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "2.0.1"
         self.userAgent = "BrewPackageManager/\(version)"
     }
 

@@ -101,6 +101,7 @@ iOSInjectionProject/
 .audit-*.log
 .audit-docker/
 .release-*.log
+.test-*.log
 .derived*/
 .derived-*.log
 .preview/

@@ -158,7 +158,7 @@ The app targets a modern macOS setup and expects a standard Homebrew installatio
 - Homebrew installed at one of the standard paths:
   - `/opt/homebrew/bin/brew` (Apple Silicon)
   - `/usr/local/bin/brew` (Intel)
-- Xcode 26+ if you want to build from source with the same Swift 6.3 toolchain used in the current audit
+- Xcode 26.5+ if you want to build from source with the same Swift 6.3.2 toolchain used in the current audit
 - Docker 29+ if you want to run the external audit lane locally
 
 ---
@@ -183,7 +183,17 @@ cd BrewPackageManager
 ./create-dmg.sh
 ```
 
-The DMG will be created at `dmg/BrewPackageManager-2.0.0.dmg`.
+The DMG will be created at `dmg/BrewPackageManager-2.0.1.dmg`.
+
+For public distribution outside your own machine, the recommended path is:
+
+```bash
+SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+NOTARYTOOL_PROFILE="bpm-notary" \
+./create-dmg.sh
+```
+
+That release path signs the app bundle, signs the DMG container, submits the DMG with `notarytool`, and staples the notarization ticket back onto the final artifact when your credentials are configured.
 
 Building from source is the better route if you want to inspect the code, test the new shell, or iterate on the app locally before packaging a release.
 

@@ -6,6 +6,7 @@
 2. Run the Docker audit lane and capture logs.
 3. Confirm docs are updated for behavior changes.
 4. Confirm version references are aligned (`Info.plist`, project settings, scripts, README, changelog).
+5. Confirm a `Developer ID Application` certificate and a stored `notarytool` profile are available if the DMG is meant for public distribution.
 
 ## 2) Update Changelog
 
@@ -48,8 +49,12 @@ Docker audit:
 DMG build:
 
 ```bash
+SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+NOTARYTOOL_PROFILE="bpm-notary" \
 ./create-dmg.sh
 ```
+
+For a public GitHub release, do not stop at ad-hoc signing. Use a Developer ID identity and notarize the final DMG.
 
 ## 4) Smoke Test DMG
 
@@ -66,12 +71,12 @@ DMG build:
 2. Create tag:
 
 ```bash
-git tag v2.0.0
+git tag v2.0.1
 git push origin main --tags
 ```
 
 3. Create GitHub release:
-  - Title: `v2.0.0`
+  - Title: `v2.0.1`
   - Body from changelog.
   - Attach DMG from `dmg/`.
 
