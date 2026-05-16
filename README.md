@@ -288,27 +288,9 @@ BrewPackageManager/
 
 ### Current Audit Reality
 
-The legacy pre-2.0 SwiftUI menu layer has already been removed from the repo. The main remaining 2.0 debt is structural, not directional: the reboot shell still needs to be split into smaller files and `PackagesStore` still needs decomposition. The audit report in `docs/AUDIT_2_0.md` tracks that explicitly.
+The legacy pre-2.0 SwiftUI menu layer has already been removed from the repo. The main remaining 2.0 debt is structural, not directional: the reboot shell still needs to be split into smaller files and `PackagesStore` still needs decomposition.
 
 That is an important distinction: the user-facing direction is already 2.0, but the codebase still has cleanup work before the release can honestly be called fully finished.
-
----
-
-## Documentation
-
-Full documentation for contributors and maintainers lives in `docs/`:
-
-The docs are split by responsibility so you can jump straight to product context, architecture, workflows, release steps, or the current 2.0 audit without digging through one giant document.
-
-- [Docs Index](docs/README.md)
-- [App Overview](docs/APP_OVERVIEW.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Module Reference](docs/MODULE_REFERENCE.md)
-- [Runtime Workflows](docs/WORKFLOWS.md)
-- [Development Guide](docs/DEVELOPMENT_GUIDE.md)
-- [Testing Strategy](docs/TESTING_STRATEGY.md)
-- [Release Playbook](docs/RELEASE_PLAYBOOK.md)
-- [2.0 Audit](docs/AUDIT_2_0.md)
 
 ---
 

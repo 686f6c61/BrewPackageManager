@@ -115,3 +115,6 @@ iOSInjectionProject/
 
 # Local release artifacts
 dmg/*.dmg
+
+# Local-only documentation
+docs/
