@@ -58,6 +58,7 @@ actor HistoryDatabase {
     func loadEntries() async -> [HistoryEntry] {
         guard let data = defaults.data(forKey: historyKey) else {
             logger.info("No history entries found")
+            lastLoadFailed = false
             return []
         }
 
@@ -65,12 +66,19 @@ actor HistoryDatabase {
             let decoded = try JSONDecoder().decode([HistoryEntryDTO].self, from: data)
             let entries = decoded.map { $0.toEntry() }
             logger.info("Loaded \(entries.count) history entries")
+            lastLoadFailed = false
             return entries
         } catch {
             logger.error("Failed to decode history entries: \(error.localizedDescription)")
+            lastLoadFailed = true
             return []
         }
     }
+
+    /// Indica si la última carga encontró datos almacenados que no se
+    /// pudieron decodificar. Permite a la interfaz distinguir «historial
+    /// vacío» de «historial ilegible» en lugar de silenciar el fallo.
+    private(set) var lastLoadFailed = false
 
     /// Clear all history entries.
     func clearHistory() async {

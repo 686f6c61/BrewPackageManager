@@ -60,9 +60,30 @@ final class DependenciesStore {
 
     // MARK: - Public Methods
 
+    /// Caché en memoria compartida entre aperturas de la pantalla: cada
+    /// navegación crea un store nuevo y el comando subyacente
+    /// (`brew info --json=v2 --installed`) es el más caro de la app (~1 s).
+    /// El grafo de dependencias cambia poco, así que un TTL corto evita
+    /// repetirlo sin riesgo de enseñar datos rancios.
+    private static var cachedDependencies: (items: [DependencyInfo], fetchedAt: Date)?
+
+    /// Vigencia de la caché de dependencias (5 minutos).
+    private static let cacheTTL: TimeInterval = 300
+
+    /// Invalida la caché compartida (tras instalar o desinstalar paquetes).
+    static func invalidateCache() {
+        cachedDependencies = nil
+    }
+
     /// Fetch dependencies for all installed packages.
     func fetchAllDependencies() async {
         guard !isLoading else { return }
+
+        if let cached = Self.cachedDependencies,
+           Date().timeIntervalSince(cached.fetchedAt) < Self.cacheTTL {
+            dependencies = cached.items
+            return
+        }
 
         isLoading = true
         lastError = nil
@@ -72,6 +93,7 @@ final class DependenciesStore {
         do {
             let allDeps = try await client.fetchAllDependencies()
             dependencies = allDeps.sorted { $0.packageName < $1.packageName }
+            Self.cachedDependencies = (dependencies, Date())
             logger.info("Successfully fetched dependencies for \(allDeps.count) packages")
         } catch is CancellationError {
             logger.debug("Dependencies fetch cancelled")

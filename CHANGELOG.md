@@ -5,6 +5,46 @@ All notable changes to BrewPackageManager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-07-02
+
+### Added
+
+- Added a fully native macOS interface: system materials, automatic light/dark mode, the user's configured accent color, system typography, and standard controls across the whole app.
+- Added a real window mode built on `NavigationSplitView`, with a grouped sidebar (Packages, Maintenance, System) replacing the scaled-up popover layout.
+- Added a `NavigationModel` observable that centralizes tab selection and push navigation for both surfaces, replacing cascaded closures.
+- Added contextual error banners with retry actions inside the affected screens, replacing generic modal alerts.
+- Added a grouped `Form` settings screen matching the modern macOS preferences look.
+- Added unit tests for the navigation model (Swift Testing).
+
+### Changed
+
+- Split the monolithic UI shell (`RebootMenuRootView.swift`, 1,600+ lines) into a modular `UI/` layer: one navigation model, one theme, 11 reusable components, 12 focused screens, and 2 surface containers.
+- Replaced the fixed dark theme (`RebootTheme`) with `AppTheme`, a native token set where the system decides base colors and the app only contributes state semantics (green/orange/red).
+- The window mode now opens at 900×640 with a 760×560 minimum, sized for the sidebar layout.
+
+### Removed
+
+- Removed the `MenuBar/Reboot/` legacy shell and its fixed dark theme.
+
+### Performance
+
+- Parallelized the three independent `brew` calls in the package refresh (~2.5 s → ~1.2 s measured).
+- The Dependencies screen now reuses a short-lived in-memory cache instead of re-running `brew info --json=v2 --installed` on every visit; the cache is invalidated after installs, upgrades of the graph, and uninstalls.
+
+### Accessibility
+
+- Status badges now meet WCAG contrast in light mode (tint mixed toward the primary color).
+- Icon-only buttons (service start/stop/restart, header refresh, package action menus) expose proper accessibility labels; decorative icons are hidden from VoiceOver.
+- Inventory rows announce name, package type, and version.
+- Loading states (`ProgressView`) and empty states (`ContentUnavailableView`) were added across Overview, Services, Cleanup, Dependencies, and Statistics, so the app never claims "up to date" before the first load finishes.
+- History entries state failures in text, not only by color.
+
+### Security
+
+- Package detail links now only open `http`/`https` URLs, so metadata coming from brew's JSON can no longer launch arbitrary URL schemes.
+- Search queries are passed to `brew` after an explicit `--` end-of-options separator, so user input can never be interpreted as a flag.
+- Added `SECURITY.md` documenting the threat model, the deliberate no-sandbox decision and its mitigations, and the vulnerability reporting channel.
+
 ## [2.0.1] - 2026-05-16
 
 ### Added

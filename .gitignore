@@ -118,3 +118,6 @@ dmg/*.dmg
 
 # Local-only documentation
 docs/
+
+# Artefactos locales de brainstorming visual
+.superpowers/

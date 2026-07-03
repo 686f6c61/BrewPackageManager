@@ -166,11 +166,14 @@ nonisolated enum BrewPackagesArgumentsBuilder {
             }
         }
 
-        arguments.append(query)
-
         if debugMode {
             arguments.append("--debug")
         }
+
+        // Separador de fin de opciones: la consulta la teclea el usuario y no
+        // debe poder interpretarse jamás como un flag de brew (p. ej. «--eval»).
+        arguments.append("--")
+        arguments.append(query)
 
         return arguments
     }

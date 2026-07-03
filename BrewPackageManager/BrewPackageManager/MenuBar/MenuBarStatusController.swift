@@ -59,7 +59,7 @@ final class MenuBarStatusController: NSObject {
         self.popover = NSPopover()
         self.hostingController = MenuBarPopoverHostingController(
             rootView: AnyView(
-                RebootMenuRootView(presentation: .popover)
+                MenuPopoverView()
                     .environment(packagesStore)
                     .environment(appSettings)
             )
@@ -348,15 +348,15 @@ final class MenuBarStatusController: NSObject {
         }
 
         let rootView = AnyView(
-            RebootMenuRootView(presentation: .window)
+            MainWindowView()
                 .environment(packagesStore)
                 .environment(appSettings)
         )
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Brew Package Manager"
-        window.setContentSize(NSSize(width: 460, height: 720))
-        window.minSize = NSSize(width: 440, height: 620)
+        window.setContentSize(NSSize(width: 900, height: 640))
+        window.minSize = NSSize(width: AppTheme.windowMinWidth, height: AppTheme.windowMinHeight)
         window.styleMask.insert(.resizable)
         window.isReleasedWhenClosed = false
 

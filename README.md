@@ -4,7 +4,7 @@
 
 # BrewPackageManager
 
-### Native macOS Menu Bar App for Homebrew, rebuilt for 2.0
+### Native macOS Menu Bar App for Homebrew, redesigned as a first-class citizen in 3.0
 
 [![macOS](https://img.shields.io/badge/macOS-15.0+-blue.svg)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
@@ -12,7 +12,7 @@
 
 BrewPackageManager is a native macOS menu bar companion for Homebrew that turns package maintenance, search, cleanup, diagnostics, and service management into a fast, readable desktop workflow instead of a collection of terminal commands.
 
-The 2.0 line rebuilds the experience around a cleaner operational shell, clearer state feedback, and direct access to the actions people actually repeat: checking what needs attention, updating visible packages, installing something new, inspecting dependencies, and troubleshooting command results without losing context.
+The 3.0 line rebuilds the interface as a fully native macOS experience: system materials and vibrancy, automatic light/dark mode, the user's configured accent color, system typography, and standard controls everywhere. The popover keeps the fast four-tab flow, while the window mode becomes a real macOS management app with a grouped sidebar, in the spirit of Finder or System Settings.
 
 [Features](#features) •
 [Screenshots](#screenshots) •
@@ -32,8 +32,8 @@ The 2.0 line rebuilds the experience around a cleaner operational shell, clearer
 ### Overview
 <img src="assets/screenshot-overview.png" alt="Overview" width="600"/>
 
-### Main Flow
-<img src="assets/screenshot-main.png" alt="Main Flow" width="600"/>
+### Window Mode
+<img src="assets/screenshot-main.png" alt="Window Mode" width="600"/>
 
 ### Package Search
 <img src="assets/screenshot-search.png" alt="Package Search" width="600"/>
@@ -62,22 +62,20 @@ The 2.0 line rebuilds the experience around a cleaner operational shell, clearer
 
 ## Features
 
-### 2.0 Shell
+### 3.0 Native Shell
 
-The 2.0 line replaces the old menu layout with a new operational shell focused on four primary areas:
+The 3.0 line replaces the custom dark theme with a fully native shell. The system decides the base colors and materials; the app only contributes state semantics (green for up to date, orange for pending, red for errors) on top.
 
-Instead of mixing every feature into one overloaded popover, the shell groups the app around a few stable mental models. The goal is simple: the main view should help you decide what matters now, while the deeper tools stay easy to reach without polluting the core flow.
+- **Native by default**: system materials, automatic light/dark mode, the user's accent color, system typography, and standard buttons, pickers, and forms
+- **Popover**: compact header with live status badge, native segmented tabs (Overview, Search, Tools, Settings), and push navigation with standard back buttons
+- **Window mode**: `NavigationSplitView` with a grouped sidebar — Packages (Overview, Search, Activity), Maintenance (Services, Cleanup, Dependencies), System (Statistics, Settings) — instead of a scaled-up popover
+- **Contextual error banners**: failures appear inside the affected screen with a retry action, replacing generic modal alerts
 
-- **Overview**: actionable updates, installed inventory snapshot, hidden items count, and fast-entry actions
-- **Search**: live package search with filters and direct install/detail actions
-- **Tools**: services, cleanup, dependencies, history, statistics, hidden items, and help in one deliberate place
-- **Settings**: core runtime toggles, refresh interval, debug mode, and app update checks
-
-Each of those areas is meant to answer a different question. `Overview` is for action, `Search` is for discovery, `Tools` is for deeper management work, and `Settings` is for changing how the app behaves over time.
+The four primary areas keep their roles: `Overview` is for action, `Search` is for discovery, `Tools` is for deeper management work, and `Settings` is for changing how the app behaves over time.
 
 ### Package Management
 
-Package management is still the center of the app, but 2.0 makes a stronger distinction between what is installed, what is outdated, and what is actually actionable. That matters because Homebrew setups often contain pinned packages, hidden updates, or items you want to keep around without turning them into constant visual noise.
+Package management is still the center of the app, and 3.0 keeps the strong distinction between what is installed, what is outdated, and what is actually actionable. That matters because Homebrew setups often contain pinned packages, hidden updates, or items you want to keep around without turning them into constant visual noise.
 
 - **Installed Package Visibility**: installed Homebrew packages with version and update state
 - **Visible Update Count**: pinned and hidden updates are excluded from the main action count
@@ -183,7 +181,7 @@ cd BrewPackageManager
 ./create-dmg.sh
 ```
 
-The DMG will be created at `dmg/BrewPackageManager-2.0.1.dmg`.
+The DMG will be created at `dmg/BrewPackageManager-3.0.0.dmg`.
 
 For public distribution outside your own machine, the recommended path is:
 
@@ -275,8 +273,10 @@ BrewPackageManager/
 ├── Brew/              # Homebrew interaction & JSON parsing
 ├── Shell/             # Command execution infrastructure
 ├── Packages/          # State management & business logic
-├── MenuBar/           # Status item, window/popover controller, and 2.0 shell
-│   └── Reboot/        # Active 2.0 UI shell and screens
+├── MenuBar/           # Status item and window/popover controller
+├── UI/                # Native 3.0 interface
+│   ├── Components/    # Reusable rows, badges, tiles, and banners
+│   └── Screens/       # One focused file per screen
 ├── Settings/          # User settings persistence
 ├── Updates/           # GitHub release checks
 ├── Services/          # Homebrew services management
@@ -288,9 +288,7 @@ BrewPackageManager/
 
 ### Current Audit Reality
 
-The legacy pre-2.0 SwiftUI menu layer has already been removed from the repo. The main remaining 2.0 debt is structural, not directional: the reboot shell still needs to be split into smaller files and `PackagesStore` still needs decomposition.
-
-That is an important distinction: the user-facing direction is already 2.0, but the codebase still has cleanup work before the release can honestly be called fully finished.
+The 3.0 redesign resolved the main structural debt of the 2.0 line: the monolithic UI shell (1,600+ lines in one file) was replaced by a modular `UI/` layer with a navigation model, shared components, and one focused file per screen. The remaining known debt is the decomposition of `PackagesStore`, which still concentrates package state, search state, and update checks.
 
 ---
 
@@ -386,6 +384,6 @@ HOMEBREW_NO_INSTALL_CLEANUP=1
 
 ## Credits
 
-This project builds on ideas and infrastructure from [BrewServicesManager](https://github.com/validatedev/BrewServicesManager) by validatedev (MIT License), while the current 2.0 UI shell is a new implementation.
+This project builds on ideas and infrastructure from [BrewServicesManager](https://github.com/validatedev/BrewServicesManager) by validatedev (MIT License), while the current 3.0 native UI is a new implementation.
 
 **Icon**: [Icons8 Box Icon](https://icons8.com)

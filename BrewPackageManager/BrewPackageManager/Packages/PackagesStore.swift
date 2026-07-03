@@ -322,15 +322,15 @@ final class PackagesStore {
         logger.info("Refreshing packages list")
 
         do {
-            // Get all installed packages
-            let installed = try await client.listInstalledPackages(debugMode: debugMode)
+            // Los tres comandos de brew son independientes entre sí: en
+            // paralelo el refresco tarda la mitad que en serie (~1,2 s vs ~2,5 s).
+            async let installedTask = client.listInstalledPackages(debugMode: debugMode)
+            async let outdatedTask = client.listOutdatedPackages(debugMode: debugMode)
+            async let pinnedTask = fetchPinnedFormulaNames(debugMode: debugMode)
 
-            // Get outdated package names
-            let outdatedNames = try await client.listOutdatedPackages(debugMode: debugMode)
-            let outdatedSet = Set(outdatedNames)
-
-            // Merge the data
-            let pinnedNames = await fetchPinnedFormulaNames(debugMode: debugMode)
+            let installed = try await installedTask
+            let outdatedSet = Set(try await outdatedTask)
+            let pinnedNames = await pinnedTask
             let packages = installed.map {
                 mergedPackage($0, outdatedSet: outdatedSet, pinnedNames: pinnedNames)
             }
@@ -671,6 +671,8 @@ final class PackagesStore {
             try await client.uninstallPackage(package.name, type: package.type, debugMode: debugMode)
             packageOperations[packageID] = PackageOperation(status: .succeeded, error: nil, diagnostics: nil)
             logHistory(operation: .uninstall, packageName: package.name, success: true)
+            // El grafo de dependencias ha cambiado: la caché deja de valer.
+            DependenciesStore.invalidateCache()
 
             // Refresh to update package list
             await refresh(debugMode: debugMode, force: true)
@@ -710,6 +712,10 @@ final class PackagesStore {
     ///   - debugMode: Whether to run commands in debug mode with verbose output.
     func fetchPackageInfo(_ packageName: String, type: PackageType? = nil, debugMode: Bool = false) async {
         logger.info("Fetching info for \(packageName)")
+
+        // Se limpia antes de la petición: si esta falla, la vista no debe
+        // poder navegar con la información de una consulta anterior.
+        selectedPackageInfo = nil
 
         do {
             selectedPackageInfo = try await client.getPackageInfo(packageName, type: type, debugMode: debugMode)
@@ -1070,7 +1076,16 @@ final class PackagesStore {
         do {
             let info = try await client.getPackageInfo(result.name, type: result.type, debugMode: debugMode)
             searchResults[index].info = info
+        } catch let error as AppError {
+            if case .cancelled = error {
+                return
+            }
+            // El error debe llegar al estado observable: si solo se registra,
+            // el botón «Details» parece no responder sin explicación.
+            nonFatalError = error
+            logger.error("Failed to fetch info for \(result.name): \(error.localizedDescription)")
         } catch {
+            nonFatalError = .brewFailed(exitCode: -1, stderr: error.localizedDescription)
             logger.error("Failed to fetch info for \(result.name): \(error.localizedDescription)")
         }
     }
@@ -1103,6 +1118,8 @@ final class PackagesStore {
                 diagnostics: nil
             )
             logHistory(operation: .install, packageName: result.name, success: true)
+            // El grafo de dependencias ha cambiado: la caché deja de valer.
+            DependenciesStore.invalidateCache()
 
             // Refresh package list to show newly installed package
             await refresh(debugMode: debugMode, force: true)

@@ -166,10 +166,13 @@ final class CleanupStore {
                         )
                         self.lastCleanupResult = "Cache cleared. Freed \(freedSize). \(self.cleanupInfo.oldVersionsRemainingMessage)"
                     }
-                } catch let refreshError as AppError {
-                    self.logger.error("Cache cleared but failed to refresh cleanup info: \(refreshError.localizedDescription)")
                 } catch {
+                    // El recálculo falló: la cifra de versiones antiguas puede
+                    // quedar obsoleta y el usuario debe saberlo.
                     self.logger.error("Cache cleared but failed to refresh cleanup info: \(error.localizedDescription)")
+                    await MainActor.run {
+                        self.lastCleanupResult = "Cache cleared. Freed \(freedSize). Could not refresh the old-versions count — use Refresh analysis to retry."
+                    }
                 }
             }
 

@@ -90,6 +90,10 @@ final class HistoryStore {
 
     // MARK: - Public Methods
 
+    /// Mensaje de error de la última carga, si el historial almacenado no se
+    /// pudo leer. `nil` cuando la carga fue correcta.
+    var loadErrorMessage: String?
+
     /// Load all history entries from database.
     func loadHistory() async {
         guard !isLoading else { return }
@@ -99,6 +103,9 @@ final class HistoryStore {
 
         let loadedEntries = await database.loadEntries()
         entries = loadedEntries
+        loadErrorMessage = await database.lastLoadFailed
+            ? "History data could not be read. The stored history may be corrupted."
+            : nil
 
         logger.info("Loaded \(loadedEntries.count) history entries")
         isLoading = false
