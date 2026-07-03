@@ -50,7 +50,7 @@ struct SearchScreen: View {
 
     @ViewBuilder
     private var results: some View {
-        switch store.searchState {
+        switch store.search.state {
         case .idle:
             ContentUnavailableView(
                 "Search Homebrew",
@@ -68,8 +68,8 @@ struct SearchScreen: View {
         case .loaded(_, let results, let hasMore):
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(results) { result in
-                    SearchResultRow(result: result, operation: store.installOperations[result.name]) {
-                        Task { await store.installPackage(result, debugMode: settings.debugMode) }
+                    SearchResultRow(result: result, operation: store.search.installOperations[result.name]) {
+                        Task { await store.search.installPackage(result, debugMode: settings.debugMode) }
                     } detailsAction: {
                         showDetails(for: result)
                     }
@@ -92,9 +92,9 @@ struct SearchScreen: View {
     /// Binding manual porque el filtro vive en el store compartido.
     private var typeFilterBinding: Binding<PackageType?> {
         Binding(
-            get: { store.searchTypeFilter },
+            get: { store.search.typeFilter },
             set: { newValue in
-                store.searchTypeFilter = newValue
+                store.search.typeFilter = newValue
                 if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     scheduleSearch(for: searchText, immediately: true)
                 }
@@ -106,7 +106,7 @@ struct SearchScreen: View {
         searchTask?.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            store.clearSearch(resetFilter: false)
+            store.search.clearSearch(resetFilter: false)
             return
         }
         searchTask = Task {
@@ -114,14 +114,14 @@ struct SearchScreen: View {
                 try? await Task.sleep(for: .milliseconds(350))
             }
             guard !Task.isCancelled else { return }
-            await store.search(query: trimmed, debugMode: settings.debugMode)
+            await store.search.search(query: trimmed, debugMode: settings.debugMode)
         }
     }
 
     private func showDetails(for result: SearchResult) {
         Task {
-            await store.fetchSearchResultInfo(result, debugMode: settings.debugMode)
-            if let updated = store.searchResults.first(where: { $0.id == result.id }),
+            await store.search.fetchSearchResultInfo(result, debugMode: settings.debugMode)
+            if let updated = store.search.results.first(where: { $0.id == result.id }),
                let info = updated.info {
                 navigation.navigate(to: .packageDetail(info))
             }

@@ -100,7 +100,7 @@ final class MenuBarStatusController: NSObject {
     }
 
     private func startBackgroundWork() {
-        packagesStore.configureAutoRefresh(
+        packagesStore.catalog.configureAutoRefresh(
             intervalSeconds: appSettings.autoRefreshInterval,
             debugMode: appSettings.debugMode
         )
@@ -111,17 +111,17 @@ final class MenuBarStatusController: NSObject {
         }
 
         Task {
-            await packagesStore.checkForUpdates(settings: appSettings, manual: false)
+            await packagesStore.appUpdates.checkForUpdates(settings: appSettings, manual: false)
         }
     }
 
     private func observeStatusItemState() {
         withObservationTracking {
-            _ = packagesStore.isBrewAvailable
-            _ = packagesStore.isRefreshing
-            _ = packagesStore.isUpgradingSelected
-            _ = packagesStore.visibleOutdatedCount
-            _ = packagesStore.isCheckingForUpdates
+            _ = packagesStore.catalog.isBrewAvailable
+            _ = packagesStore.catalog.isRefreshing
+            _ = packagesStore.operations.isUpgradingSelected
+            _ = packagesStore.visibility.visibleOutdatedCount
+            _ = packagesStore.appUpdates.isCheckingForUpdates
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.updateStatusItemAppearance()
@@ -143,19 +143,19 @@ final class MenuBarStatusController: NSObject {
     }
 
     private func iconNameForCurrentState() -> String {
-        if !packagesStore.isBrewAvailable {
+        if !packagesStore.catalog.isBrewAvailable {
             return "cube.box.fill"
         }
 
-        if packagesStore.isRefreshing {
+        if packagesStore.catalog.isRefreshing {
             return "arrow.triangle.2.circlepath"
         }
 
-        if packagesStore.isUpgradingSelected {
+        if packagesStore.operations.isUpgradingSelected {
             return "arrow.up.circle.fill"
         }
 
-        if packagesStore.visibleOutdatedCount > 0 {
+        if packagesStore.visibility.visibleOutdatedCount > 0 {
             return "cube.box"
         }
 
@@ -163,19 +163,19 @@ final class MenuBarStatusController: NSObject {
     }
 
     private func tooltipForCurrentState() -> String {
-        if !packagesStore.isBrewAvailable {
+        if !packagesStore.catalog.isBrewAvailable {
             return "Brew Package Manager: Homebrew not available"
         }
 
-        if packagesStore.isRefreshing {
+        if packagesStore.catalog.isRefreshing {
             return "Brew Package Manager: Refreshing packages"
         }
 
-        if packagesStore.isUpgradingSelected {
+        if packagesStore.operations.isUpgradingSelected {
             return "Brew Package Manager: Updating packages"
         }
 
-        let outdatedCount = packagesStore.visibleOutdatedCount
+        let outdatedCount = packagesStore.visibility.visibleOutdatedCount
         if outdatedCount == 0 {
             return "Brew Package Manager: All packages up to date"
         }
@@ -243,15 +243,15 @@ final class MenuBarStatusController: NSObject {
         menu.addItem(.separator())
 
         let refreshItem = NSMenuItem(
-            title: packagesStore.isRefreshing ? "Refreshing Packages…" : "Refresh Packages",
+            title: packagesStore.catalog.isRefreshing ? "Refreshing Packages…" : "Refresh Packages",
             action: #selector(refreshPackagesFromMenu),
             keyEquivalent: ""
         )
         refreshItem.target = self
-        refreshItem.isEnabled = !packagesStore.isRefreshing
+        refreshItem.isEnabled = !packagesStore.catalog.isRefreshing
         menu.addItem(refreshItem)
 
-        let visibleOutdatedCount = packagesStore.visibleOutdatedCount
+        let visibleOutdatedCount = packagesStore.visibility.visibleOutdatedCount
         let updateTitle: String
         if visibleOutdatedCount == 0 {
             updateTitle = "No Package Updates Available"
@@ -267,16 +267,16 @@ final class MenuBarStatusController: NSObject {
             keyEquivalent: ""
         )
         updateItem.target = self
-        updateItem.isEnabled = visibleOutdatedCount > 0 && !packagesStore.isRefreshing && !packagesStore.isUpgradingSelected
+        updateItem.isEnabled = visibleOutdatedCount > 0 && !packagesStore.catalog.isRefreshing && !packagesStore.operations.isUpgradingSelected
         menu.addItem(updateItem)
 
         let appUpdateItem = NSMenuItem(
-            title: packagesStore.isCheckingForUpdates ? "Checking for App Updates…" : "Check for App Updates",
+            title: packagesStore.appUpdates.isCheckingForUpdates ? "Checking for App Updates…" : "Check for App Updates",
             action: #selector(checkForAppUpdatesFromMenu),
             keyEquivalent: ""
         )
         appUpdateItem.target = self
-        appUpdateItem.isEnabled = !packagesStore.isCheckingForUpdates
+        appUpdateItem.isEnabled = !packagesStore.appUpdates.isCheckingForUpdates
         menu.addItem(appUpdateItem)
 
         menu.addItem(.separator())
@@ -302,21 +302,21 @@ final class MenuBarStatusController: NSObject {
 
     @objc private func refreshPackagesFromMenu() {
         Task {
-            await packagesStore.refresh(debugMode: appSettings.debugMode, force: true)
+            await packagesStore.catalog.refresh(debugMode: appSettings.debugMode, force: true)
         }
     }
 
     @objc private func updateVisiblePackagesFromMenu() {
         Task {
-            packagesStore.selectAllOutdated()
-            guard !packagesStore.selectedPackageIDs.isEmpty else { return }
-            await packagesStore.upgradeSelected(debugMode: appSettings.debugMode)
+            packagesStore.operations.selectAllOutdated()
+            guard !packagesStore.operations.selectedPackageIDs.isEmpty else { return }
+            await packagesStore.operations.upgradeSelected(debugMode: appSettings.debugMode)
         }
     }
 
     @objc private func checkForAppUpdatesFromMenu() {
         Task {
-            await packagesStore.checkForUpdates(settings: appSettings, manual: true)
+            await packagesStore.appUpdates.checkForUpdates(settings: appSettings, manual: true)
         }
     }
 

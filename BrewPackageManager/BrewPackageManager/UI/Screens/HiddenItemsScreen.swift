@@ -10,12 +10,12 @@ import SwiftUI
 struct HiddenItemsScreen: View {
     @Environment(PackagesStore.self) private var store
 
-    private var hiddenPackages: [PackagesStore.HiddenItem] {
-        store.hiddenItems.filter { $0.kind == .package }
+    private var hiddenPackages: [PackageVisibilityStore.HiddenItem] {
+        store.visibility.hiddenItems.filter { $0.kind == .package }
     }
 
-    private var hiddenUpdates: [PackagesStore.HiddenItem] {
-        store.hiddenItems.filter { $0.kind == .update }
+    private var hiddenUpdates: [PackageVisibilityStore.HiddenItem] {
+        store.visibility.hiddenItems.filter { $0.kind == .update }
     }
 
     var body: some View {
@@ -31,12 +31,12 @@ struct HiddenItemsScreen: View {
                 } else {
                     if !hiddenPackages.isEmpty {
                         group(title: "Hidden packages", items: hiddenPackages) { item in
-                            store.unhidePackage(item.package.id)
+                            store.visibility.unhidePackage(item.package.id)
                         }
                     }
                     if !hiddenUpdates.isEmpty {
                         group(title: "Hidden updates", items: hiddenUpdates) { item in
-                            store.unhideUpdate(for: item.package.id)
+                            store.visibility.unhideUpdate(for: item.package.id)
                         }
                     }
                 }
@@ -48,8 +48,8 @@ struct HiddenItemsScreen: View {
 
     private func group(
         title: String,
-        items: [PackagesStore.HiddenItem],
-        restore: @escaping (PackagesStore.HiddenItem) -> Void
+        items: [PackageVisibilityStore.HiddenItem],
+        restore: @escaping (PackageVisibilityStore.HiddenItem) -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)

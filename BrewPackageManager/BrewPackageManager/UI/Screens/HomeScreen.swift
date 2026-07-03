@@ -17,17 +17,17 @@ struct HomeScreen: View {
     @State private var inventoryLimit = 6
 
     private var attentionPackages: [BrewPackage] {
-        Array(store.visibleOutdatedPackages.prefix(6))
+        Array(store.visibility.visibleOutdatedPackages.prefix(6))
     }
 
     private var trackedPackages: [BrewPackage] {
-        Array(store.visiblePackages.prefix(inventoryLimit))
+        Array(store.visibility.visiblePackages.prefix(inventoryLimit))
     }
 
     /// Primera carga: aún no hay inventario que enseñar. Sin esta distinción
     /// la pantalla afirmaría «Everything up to date» antes de saberlo.
     private var isInitialLoad: Bool {
-        store.visiblePackages.isEmpty && store.isRefreshing
+        store.visibility.visiblePackages.isEmpty && store.catalog.isRefreshing
     }
 
     var body: some View {
@@ -55,28 +55,28 @@ struct HomeScreen: View {
     private var summaryCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
-                title: store.visibleOutdatedCount == 0 ? "Everything up to date" : "\(store.visibleOutdatedCount) updates pending",
-                detail: store.visibleOutdatedCount == 0
+                title: store.visibility.visibleOutdatedCount == 0 ? "Everything up to date" : "\(store.visibility.visibleOutdatedCount) updates pending",
+                detail: store.visibility.visibleOutdatedCount == 0
                     ? "Pinned and hidden updates stay out of the way."
                     : "Update everything visible in one action or review below."
             )
             HStack(spacing: 8) {
                 MetricTile(
                     title: "Updates",
-                    value: "\(store.visibleOutdatedCount)",
-                    tint: store.visibleOutdatedCount == 0 ? AppTheme.statusPositive : AppTheme.statusPending
+                    value: "\(store.visibility.visibleOutdatedCount)",
+                    tint: store.visibility.visibleOutdatedCount == 0 ? AppTheme.statusPositive : AppTheme.statusPending
                 )
-                MetricTile(title: "Installed", value: "\(store.visiblePackages.count)")
-                MetricTile(title: "Hidden", value: "\(store.hiddenItems.count)")
+                MetricTile(title: "Installed", value: "\(store.visibility.visiblePackages.count)")
+                MetricTile(title: "Hidden", value: "\(store.visibility.hiddenItems.count)")
             }
             HStack(spacing: 8) {
-                if store.visibleOutdatedCount > 0 {
+                if store.visibility.visibleOutdatedCount > 0 {
                     Button("Update all visible", systemImage: "arrow.up.circle") { updateAllVisible() }
                         .buttonStyle(.borderedProminent)
                 }
                 Button("Refresh", systemImage: "arrow.clockwise") { refresh() }
                     .buttonStyle(.bordered)
-                    .disabled(store.isRefreshing)
+                    .disabled(store.catalog.isRefreshing)
             }
             .controlSize(.small)
         }
@@ -116,7 +116,7 @@ struct HomeScreen: View {
                     actionTitle: "Details",
                     secondaryTitle: "Hide",
                     primaryAction: { showDetails(for: package) },
-                    secondaryAction: { store.hideUpdate(for: package) }
+                    secondaryAction: { store.visibility.hideUpdate(for: package) }
                 )
             }
         }
@@ -129,8 +129,8 @@ struct HomeScreen: View {
                 InventoryRow(package: package) { showDetails(for: package) }
             }
             HStack(spacing: 8) {
-                if trackedPackages.count < store.visiblePackages.count {
-                    Button("Show more") { inventoryLimit = min(inventoryLimit + 6, store.visiblePackages.count) }
+                if trackedPackages.count < store.visibility.visiblePackages.count {
+                    Button("Show more") { inventoryLimit = min(inventoryLimit + 6, store.visibility.visiblePackages.count) }
                 }
                 if inventoryLimit > 6 {
                     Button("Show less") { inventoryLimit = 6 }
@@ -142,21 +142,21 @@ struct HomeScreen: View {
     }
 
     private func refresh() {
-        Task { await store.refresh(debugMode: settings.debugMode, force: true) }
+        Task { await store.catalog.refresh(debugMode: settings.debugMode, force: true) }
     }
 
     private func updateAllVisible() {
         Task {
-            store.selectAllOutdated()
-            guard !store.selectedPackageIDs.isEmpty else { return }
-            await store.upgradeSelected(debugMode: settings.debugMode)
+            store.operations.selectAllOutdated()
+            guard !store.operations.selectedPackageIDs.isEmpty else { return }
+            await store.operations.upgradeSelected(debugMode: settings.debugMode)
         }
     }
 
     private func showDetails(for package: BrewPackage) {
         Task {
-            await store.fetchPackageInfo(package.name, type: package.type, debugMode: settings.debugMode)
-            if let info = store.selectedPackageInfo {
+            await store.operations.fetchPackageInfo(package.name, type: package.type, debugMode: settings.debugMode)
+            if let info = store.operations.selectedPackageInfo {
                 navigation.navigate(to: .packageDetail(info))
             }
         }

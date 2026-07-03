@@ -44,10 +44,10 @@ struct SettingsScreen: View {
                     .foregroundStyle(.secondary)
             }
             Section("App Updates") {
-                Button(store.isCheckingForUpdates ? "Checking…" : "Check for app updates now") {
-                    Task { await store.checkForUpdates(settings: settings, manual: true) }
+                Button(store.appUpdates.isCheckingForUpdates ? "Checking…" : "Check for app updates now") {
+                    Task { await store.appUpdates.checkForUpdates(settings: settings, manual: true) }
                 }
-                .disabled(store.isCheckingForUpdates)
+                .disabled(store.appUpdates.isCheckingForUpdates)
                 if let feedback = updateFeedback {
                     Text(feedback)
                         .font(.caption)
@@ -60,7 +60,7 @@ struct SettingsScreen: View {
     }
 
     private var updateFeedback: String? {
-        switch store.updateCheckResult {
+        switch store.appUpdates.updateCheckResult {
         case .upToDate:
             return "You are already on the latest app version."
         case .updateAvailable(let release):

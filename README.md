@@ -181,7 +181,7 @@ cd BrewPackageManager
 ./create-dmg.sh
 ```
 
-The DMG will be created at `dmg/BrewPackageManager-3.0.0.dmg`.
+The DMG will be created at `dmg/BrewPackageManager-3.0.1.dmg`.
 
 For public distribution outside your own machine, the recommended path is:
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="BrewPackageManager"
-VERSION="3.0.0"
+VERSION="3.0.1"
 DMG_NAME="${APP_NAME}-${VERSION}"
 BUILD_CONFIGURATION="Release"
 DEFAULT_DEVELOPER_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | awk -F '\"' '/Developer ID Application:/ { print $2; exit }')"

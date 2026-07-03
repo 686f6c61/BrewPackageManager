@@ -5,6 +5,19 @@ All notable changes to BrewPackageManager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-07-03
+
+### Changed
+
+- Decomposed the internal `PackagesStore` (1,200+ lines, seven responsibilities) into five single-responsibility observable stores — catalog (refresh, disk cache, pins), visibility (hidden packages/updates), operations (selection, bulk upgrade, uninstall, package detail), search/install, and app updates — coordinated by a thin composition root. No user-facing behavior changes.
+- Moved CSV export into a stateless `PackageListCSVExporter`, now covered by dedicated unit tests.
+
+### Fixed
+
+- Removed dead selection-handling code in the bulk upgrade flow.
+- The refresh history entry now labels its update count as "unfiltered" when the visible-updates counter is unavailable, instead of recording a misleading number.
+- Internal store wiring now fails loudly in debug builds (assertions plus fault logging) if a sub-store is ever used without its coordination callbacks, preventing silent state divergence.
+
 ## [3.0.0] - 2026-07-02
 
 ### Added

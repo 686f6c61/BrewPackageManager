@@ -140,8 +140,8 @@ struct BrewPackageManagerTests {
 
         let store = await MainActor.run { PackagesStore(client: MockUpgradeFailingClient()) }
         await MainActor.run {
-            store.state = .loaded([package])
-            store.selectedPackageIDs = [package.id]
+            store.catalog.state = .loaded([package])
+            store.operations.selectedPackageIDs = [package.id]
         }
 
         await MainActor.run {
@@ -150,14 +150,14 @@ struct BrewPackageManagerTests {
 
         let upgradeTask = await MainActor.run {
             Task {
-                await store.upgradeSelected(debugMode: false)
+                await store.operations.upgradeSelected(debugMode: false)
             }
         }
         await upgradeTask.value
 
         await MainActor.run {
-            #expect(store.isUpgradingSelected == false)
-            #expect(store.upgradeProgress == nil)
+            #expect(store.operations.isUpgradingSelected == false)
+            #expect(store.operations.upgradeProgress == nil)
             #expect(store.nonFatalError != nil)
         }
     }
@@ -191,13 +191,13 @@ struct BrewPackageManagerTests {
 
         let store = await MainActor.run { PackagesStore(client: MockTrackingClient()) }
         await MainActor.run {
-            store.state = .loaded([pinned, updatable])
-            store.selectAllOutdated()
+            store.catalog.state = .loaded([pinned, updatable])
+            store.operations.selectAllOutdated()
         }
 
         await MainActor.run {
-            #expect(store.selectedPackageIDs.contains(updatable.id))
-            #expect(store.selectedPackageIDs.contains(pinned.id) == false)
+            #expect(store.operations.selectedPackageIDs.contains(updatable.id))
+            #expect(store.operations.selectedPackageIDs.contains(pinned.id) == false)
         }
     }
 
@@ -254,16 +254,16 @@ struct BrewPackageManagerTests {
 
         let store = await MainActor.run { PackagesStore(client: MockTrackingClient()) }
         await MainActor.run {
-            store.state = .loaded([pinned, hiddenUpdate, hiddenPackage, visibleUpdate])
-            store.hideUpdate(for: hiddenUpdate)
-            store.hidePackage(hiddenPackage)
+            store.catalog.state = .loaded([pinned, hiddenUpdate, hiddenPackage, visibleUpdate])
+            store.visibility.hideUpdate(for: hiddenUpdate)
+            store.visibility.hidePackage(hiddenPackage)
         }
 
         await MainActor.run {
-            #expect(store.visiblePackages.map(\.id) == [pinned.id, hiddenUpdate.id, visibleUpdate.id])
-            #expect(store.visibleOutdatedPackages.map(\.id) == [visibleUpdate.id])
-            #expect(store.visibleOutdatedCount == 1)
-            #expect(store.hiddenItems.count == 2)
+            #expect(store.visibility.visiblePackages.map(\.id) == [pinned.id, hiddenUpdate.id, visibleUpdate.id])
+            #expect(store.visibility.visibleOutdatedPackages.map(\.id) == [visibleUpdate.id])
+            #expect(store.visibility.visibleOutdatedCount == 1)
+            #expect(store.visibility.hiddenItems.count == 2)
         }
     }
 
@@ -296,13 +296,13 @@ struct BrewPackageManagerTests {
 
         let store = await MainActor.run { PackagesStore(client: MockTrackingClient()) }
         await MainActor.run {
-            store.state = .loaded([hiddenUpdate, visibleUpdate])
-            store.hideUpdate(for: hiddenUpdate)
-            store.selectAllOutdated()
+            store.catalog.state = .loaded([hiddenUpdate, visibleUpdate])
+            store.visibility.hideUpdate(for: hiddenUpdate)
+            store.operations.selectAllOutdated()
         }
 
         await MainActor.run {
-            #expect(store.selectedPackageIDs == Set([visibleUpdate.id]))
+            #expect(store.operations.selectedPackageIDs == Set([visibleUpdate.id]))
         }
     }
 
@@ -330,15 +330,15 @@ struct BrewPackageManagerTests {
         )
 
         let firstStore = PackagesStore(client: MockTrackingClient(), defaults: defaults)
-        firstStore.state = .loaded([package])
-        firstStore.hidePackage(package)
-        firstStore.hideUpdate(for: package)
+        firstStore.catalog.state = .loaded([package])
+        firstStore.visibility.hidePackage(package)
+        firstStore.visibility.hideUpdate(for: package)
 
         let reloadedStore = PackagesStore(client: MockTrackingClient(), defaults: defaults)
-        reloadedStore.state = .loaded([package])
+        reloadedStore.catalog.state = .loaded([package])
 
-        #expect(reloadedStore.isPackageHidden(package))
-        #expect(reloadedStore.isUpdateHidden(package) == false)
+        #expect(reloadedStore.visibility.isPackageHidden(package))
+        #expect(reloadedStore.visibility.isUpdateHidden(package) == false)
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -361,14 +361,14 @@ struct BrewPackageManagerTests {
         let client = MockTrackingClient()
         let store = await MainActor.run { PackagesStore(client: client) }
         await MainActor.run {
-            store.state = .loaded([pinned])
-            store.selectedPackageIDs = [pinned.id]
+            store.catalog.state = .loaded([pinned])
+            store.operations.selectedPackageIDs = [pinned.id]
             store.nonFatalError = nil
         }
 
         let upgradeTask = await MainActor.run {
             Task {
-                await store.upgradeSelected(debugMode: false)
+                await store.operations.upgradeSelected(debugMode: false)
             }
         }
         await upgradeTask.value
@@ -376,8 +376,8 @@ struct BrewPackageManagerTests {
         let upgradeCallCount = await client.upgradeCallCount()
 
         await MainActor.run {
-            #expect(store.isUpgradingSelected == false)
-            #expect(store.upgradeProgress == nil)
+            #expect(store.operations.isUpgradingSelected == false)
+            #expect(store.operations.upgradeProgress == nil)
             #expect(store.nonFatalError != nil)
         }
         #expect(upgradeCallCount == 0)
@@ -401,14 +401,14 @@ struct BrewPackageManagerTests {
         let client = MockTrackingClient(pinnedPackages: ["tree"])
         let store = await MainActor.run { PackagesStore(client: client) }
         await MainActor.run {
-            store.state = .loaded([package])
-            store.selectedPackageIDs = [package.id]
+            store.catalog.state = .loaded([package])
+            store.operations.selectedPackageIDs = [package.id]
             store.nonFatalError = nil
         }
 
         let upgradeTask = await MainActor.run {
             Task {
-                await store.upgradeSelected(debugMode: false)
+                await store.operations.upgradeSelected(debugMode: false)
             }
         }
         await upgradeTask.value
@@ -416,8 +416,8 @@ struct BrewPackageManagerTests {
         let upgradeCallCount = await client.upgradeCallCount()
 
         await MainActor.run {
-            #expect(store.isUpgradingSelected == false)
-            #expect(store.upgradeProgress == nil)
+            #expect(store.operations.isUpgradingSelected == false)
+            #expect(store.operations.upgradeProgress == nil)
             #expect(store.nonFatalError != nil)
             if let error = store.nonFatalError {
                 #expect(error.localizedDescription.lowercased().contains("pinned"))
@@ -534,31 +534,31 @@ struct BrewPackageManagerTests {
     @MainActor
     func clearSearchPreservesFilterUnlessExplicitlyReset() {
         let store = PackagesStore(client: MockTrackingClient())
-        store.searchTypeFilter = .cask
+        store.search.typeFilter = .cask
 
-        store.clearSearch()
-        #expect(store.searchTypeFilter == .cask)
+        store.search.clearSearch()
+        #expect(store.search.typeFilter == .cask)
 
-        store.clearSearch(resetFilter: true)
-        #expect(store.searchTypeFilter == nil)
+        store.search.clearSearch(resetFilter: true)
+        #expect(store.search.typeFilter == nil)
     }
 
     @Test("Latest search response wins over stale in-flight results")
     func latestSearchResponseWins() async {
         let store = await MainActor.run { PackagesStore(client: MockSearchRaceClient()) }
         await MainActor.run {
-            store.searchTypeFilter = .formula
+            store.search.typeFilter = .formula
         }
 
         let firstSearch = await MainActor.run {
             Task {
-                await store.search(query: "py", debugMode: false)
+                await store.search.search(query: "py", debugMode: false)
             }
         }
 
         let secondSearch = await MainActor.run {
             Task {
-                await store.search(query: "python", debugMode: false)
+                await store.search.search(query: "python", debugMode: false)
             }
         }
 
@@ -566,7 +566,7 @@ struct BrewPackageManagerTests {
         await firstSearch.value
 
         await MainActor.run {
-            guard case .loaded(let query, let results, let hasMore) = store.searchState else {
+            guard case .loaded(let query, let results, let hasMore) = store.search.state else {
                 Issue.record("Expected loaded search state")
                 return
             }

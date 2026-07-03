@@ -49,17 +49,17 @@ struct MenuPopoverView: View {
                 }
                 Spacer()
                 StatusBadge(
-                    text: store.visibleOutdatedCount == 0 ? "Up to date" : "\(store.visibleOutdatedCount) pending",
-                    tint: store.visibleOutdatedCount == 0 ? AppTheme.statusPositive : AppTheme.statusPending
+                    text: store.visibility.visibleOutdatedCount == 0 ? "Up to date" : "\(store.visibility.visibleOutdatedCount) pending",
+                    tint: store.visibility.visibleOutdatedCount == 0 ? AppTheme.statusPositive : AppTheme.statusPending
                 )
                 Button {
-                    Task { await store.refresh(debugMode: settings.debugMode, force: true) }
+                    Task { await store.catalog.refresh(debugMode: settings.debugMode, force: true) }
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .disabled(store.isRefreshing)
+                .disabled(store.catalog.isRefreshing)
                 .help("Refresh packages")
                 .accessibilityLabel("Refresh packages")
             }
@@ -85,11 +85,11 @@ struct MenuPopoverView: View {
     }
 
     private var subtitle: String {
-        if store.visibleOutdatedCount == 0 {
-            return "\(store.visiblePackages.count) packages · all calm"
+        if store.visibility.visibleOutdatedCount == 0 {
+            return "\(store.visibility.visiblePackages.count) packages · all calm"
         }
-        let word = store.visibleOutdatedCount == 1 ? "package needs" : "packages need"
-        return "\(store.visibleOutdatedCount) \(word) attention"
+        let word = store.visibility.visibleOutdatedCount == 1 ? "package needs" : "packages need"
+        return "\(store.visibility.visibleOutdatedCount) \(word) attention"
     }
 
     /// Binding manual: seleccionar pestaña también limpia la pila.
